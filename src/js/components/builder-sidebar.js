@@ -236,6 +236,8 @@ class BuilderSidebar extends HTMLElement {
           color: #666;
           flex: 1;
           text-align: center;
+          font-size: 0.875rem;
+          font-weight: normal;
         }
   
         .tab:hover {
@@ -337,8 +339,8 @@ class BuilderSidebar extends HTMLElement {
         .editor-header {
           display: flex;
           align-items: center;
-          padding: 1rem;
-          border-bottom: 1px solid #eee;
+          padding: 0.75rem 1rem;
+          border-bottom: 1px solid #ddd;
           background: #f5f5f5;
           gap: 0.5rem;
         }
@@ -354,6 +356,8 @@ class BuilderSidebar extends HTMLElement {
           color: #666;
           padding: 0.5rem;
           border-radius: 4px;
+          margin-right: 0.25rem;
+          height: 32px;
         }
         
         .back-button:hover {
@@ -362,9 +366,10 @@ class BuilderSidebar extends HTMLElement {
         }
         
         .editor-title {
-          font-size: 1rem;
-          color: #333;
+          font-size: 0.875rem;
+          color: #666;
           margin: 0;
+          font-weight: normal;
         }
         
         .editor-content {

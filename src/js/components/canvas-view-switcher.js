@@ -32,6 +32,9 @@ class CanvasViewSwitcher extends HTMLElement {
             display: flex;
             background: #f5f5f5;
             border-bottom: 1px solid #ddd;
+            text-align: center;
+            font-size: 0.875rem;
+            font-weight: normal;
           }
   
           .view-tab {

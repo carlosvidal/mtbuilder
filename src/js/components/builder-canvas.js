@@ -923,19 +923,31 @@ class BuilderCanvas extends HTMLElement {
             padding: 4rem;
           }
   
+          /* Estilos de filas */
           .builder-row {
             position: relative;
             margin: 1rem 0;
             background: white;
             border: 1px solid #eee;
             border-radius: 4px;
-            transition: all 0.2s ease;
+            transition: transform 0.2s ease;
           }
   
           .builder-row:hover {
             box-shadow: 0 0 10px rgba(0,0,0,0.1);
           }
   
+          .builder-row.row-dragging {
+            opacity: 0.5;
+            border: 2px dashed #2196F3;
+            pointer-events: none;
+          }
+
+          .builder-row:not(.row-dragging) {
+            transform: translate3d(0, 0, 0);
+          }
+  
+          /* Controles de fila */
           .row-controls {
             position: absolute;
             top: -1.5rem;
@@ -965,6 +977,10 @@ class BuilderCanvas extends HTMLElement {
           .row-controls button:hover {
             background: #333;
           }
+
+          .row-move {
+            cursor: move;
+          }
   
           .row-content {
             display: grid;
@@ -972,16 +988,17 @@ class BuilderCanvas extends HTMLElement {
             padding: 1rem;
           }
   
+          /* Estilos de columna */
           .builder-column {
             min-height: 100px;
           }
   
           .column-dropzone {
+            position: relative;
             height: 100%;
             min-height: 100px;
             border: 1px dashed #ddd;
             border-radius: 4px;
-            padding: 0.5rem;
             transition: all 0.2s ease;
           }
   
@@ -989,6 +1006,21 @@ class BuilderCanvas extends HTMLElement {
             background: #f8f9fa;
             border-color: #2196F3;
             box-shadow: inset 0 0 0 2px #2196F3;
+          }
+
+          .column-dropzone::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: #2196F3;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+          }
+
+          .column-dropzone.dragover::after {
+            opacity: 1;
           }
   
           .empty-column {
@@ -1002,207 +1034,120 @@ class BuilderCanvas extends HTMLElement {
             text-align: center;
           }
   
+          /* Estilos de elementos */
+          .builder-element-wrapper {
+            position: relative;
+            margin: 0.5rem 0;
+            pointer-events: all;
+          }
+  
           .builder-element {
             position: relative;
             margin: 0.5rem 0;
             transition: all 0.2s ease;
+            cursor: move;
+            width: 100%;
+            box-sizing: border-box;
+            user-select: none;
+            padding: 4px;
           }
   
           .builder-element:hover {
             outline: 2px solid #2196F3;
           }
 
-          .builder-element {
-          position: relative;
-          margin: 0.5rem 0;
-          transition: all 0.2s ease;
-          cursor: move;
-        }
+          .builder-element.dragging {
+            opacity: 1;
+          }
 
-        .builder-element:hover {
-          outline: 2px solid #2196F3;
-        }
+          .builder-element.drag-ghost {
+            opacity: 0.5;
+          }
 
-        .builder-element.dragging {
-          opacity: 1;
-        }
+          .builder-element.selected {
+            outline: 2px solid #2196F3;
+            box-shadow: 0 0 0 4px rgba(33, 150, 243, 0.2);
+          }
 
-        .builder-element.drag-ghost {
-          opacity: 0.5;
-        }
+          .builder-element::before {
+            content: "⋮";
+            position: absolute;
+            left: -1.5rem;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.2rem;
+            color: #666;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+          }
 
-        .builder-element::before {
-          content: "⋮";
-          position: absolute;
-          left: -1.5rem;
-          top: 50%;
-          transform: translateY(-50%);
-          font-size: 1.2rem;
-          color: #666;
-          opacity: 0;
-          transition: opacity 0.2s ease;
-        }
+          .builder-element:hover::before {
+            opacity: 1;
+          }
 
-        .builder-element:hover::before {
-          opacity: 1;
-        }
+          /* Controles de elementos */
+          .element-controls {
+            position: absolute;
+            top: 0;
+            right: 0;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            z-index: 10;
+            display: flex;
+            gap: 0.25rem;
+            padding: 0.25rem;
+          }
 
-        .column-dropzone {
-          position: relative;
-          height: 100%;
-          min-height: 100px;
-          border: 1px dashed #ddd;
-          border-radius: 4px;
-          padding: 0.5rem;
-          padding-left: 2rem;
-          transition: all 0.2s ease;
-        }
+          .builder-element-wrapper:hover .element-controls {
+            opacity: 1;
+          }
 
-        .column-dropzone.dragover {
-          background: #f8f9fa;
-          border-color: #2196F3;
-          box-shadow: inset 0 0 0 2px #2196F3;
-        }
+          .element-delete {
+            background: #ff4444;
+            color: white;
+            border: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 14px;
+            line-height: 1;
+            padding: 0;
+            transition: all 0.2s ease;
+          }
 
-        /* Indicador de posición de drop */
-        .column-dropzone::after {
-          content: "";
-          position: absolute;
-          left: 0;
-          right: 0;
-          height: 2px;
-          background: #2196F3;
-          opacity: 0;
-          transition: opacity 0.2s ease;
-        }
+          .element-delete:hover {
+            background: #cc0000;
+            transform: scale(1.1);
+          }
 
-        .column-dropzone.dragover::after {
-          opacity: 1;
-        }
+          /* Indicador de drop */
+          .drop-indicator {
+            position: absolute;
+            left: 1rem;
+            right: 1rem;
+            height: 3px;
+            background-color: #2196F3;
+            transition: top 0.2s ease;
+            pointer-events: none;
+            z-index: 1000;
+          }
 
-        .row-dragging {
-          opacity: 0.5;
-          border: 2px dashed #2196F3;
-          pointer-events: none; 
-        }
+          /* Estilos para elementos editables */
+          .builder-element[contenteditable="true"] {
+            cursor: text;
+            outline: 2px solid #2196F3;
+            padding: 8px;
+            min-height: 1em;
+          }
 
-        .row-move {
-          cursor: move;
-        }
-
-        .builder-row {
-          transition: transform 0.2s ease;
-        }
-
-        .builder-row:not(.row-dragging) {
-          transform: translate3d(0, 0, 0);
-        }
-
-        .drop-indicator {
-          position: absolute;
-          left: 1rem;
-          right: 1rem;
-          height: 3px;
-          background-color: #2196F3;
-          transition: top 0.2s ease;
-          pointer-events: none;
-          z-index: 1000;
-        }
-
-        .builder-row.row-dragging {
-          opacity: 0.5;
-          border: 2px dashed #2196F3;
-        }
-
-        .row-move {
-          cursor: move;
-          background: #666;
-          border: none;
-          color: white;
-          padding: 4px 8px;
-          border-radius: 4px;
-        }
-
-        .row-move:hover {
-          background: #444;
-        }
-        
-        .row-controls {
-          position: absolute;
-          top: -1.5rem;
-          right: 0;
-          display: flex;
-          gap: 0.5rem;
-          opacity: 0;
-          transition: opacity 0.2s ease;
-        }
-        
-        .builder-row:hover .row-controls {
-          opacity: 1;
-        }
-
-        .builder-element-wrapper {
-  position: relative;
-  margin: 0.5rem 0;
-}
-
-.element-controls {
-  position: absolute;
-  top: 0;
-  right: 0;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-  z-index: 10;
-  display: flex;
-  gap: 0.25rem;
-  padding: 0.25rem;
-}
-
-.builder-element-wrapper:hover .element-controls {
-  opacity: 1;
-}
-
-.element-delete {
-  background: #ff4444;
-  color: white;
-  border: none;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 14px;
-  line-height: 1;
-  padding: 0;
-  transition: all 0.2s ease;
-}
-
-.element-delete:hover {
-  background: #cc0000;
-  transform: scale(1.1);
-}
-
-.builder-element {
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.builder-element.selected {
-  outline: 2px solid #2196F3;
-  box-shadow: 0 0 0 4px rgba(33, 150, 243, 0.2);
-}
-
-.builder-element {
-  cursor: pointer;
-  user-select: none;
-  padding: 4px;
-}
-
-.builder-element-wrapper {
-  pointer-events: all;
-}
+          .builder-element[contenteditable="true"]:focus {
+            outline: 2px solid #2196F3;
+            box-shadow: 0 0 0 4px rgba(33, 150, 243, 0.2);
+          }
         </style>
   
        <div class="canvas-container">
