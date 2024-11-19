@@ -61,9 +61,29 @@ class BuilderSidebar extends HTMLElement {
         label: "Botón",
       },
       {
+        type: "table",
+        icon: "⊞",
+        label: "Tabla",
+      },
+      {
+        type: "list",
+        icon: "☰",
+        label: "Lista",
+      },
+      {
+        type: "video",
+        icon: "▶",
+        label: "Video",
+      },
+      {
         type: "divider",
         icon: "―",
         label: "Divisor",
+      },
+      {
+        type: "spacer",
+        icon: "↕",
+        label: "Espacio",
       },
       {
         type: "html",
@@ -139,6 +159,35 @@ class BuilderSidebar extends HTMLElement {
     });
   }
 
+  renderMainSidebar() {
+    return `
+      <div class="tabs">
+        <button class="tab ${
+          this.currentTab === "principal" ? "active" : ""
+        }" data-tab="principal">
+          Principal
+        </button>
+        <button class="tab ${
+          this.currentTab === "rows" ? "active" : ""
+        }" data-tab="rows">
+          Filas
+        </button>
+        <button class="tab ${
+          this.currentTab === "elements" ? "active" : ""
+        }" data-tab="elements">
+          Elementos
+        </button>
+      </div>
+      ${
+        this.currentTab === "principal"
+          ? this.renderPrincipalTab()
+          : this.currentTab === "rows"
+          ? this.renderRowsTab()
+          : this.renderElementsTab()
+      }
+    `;
+  }
+
   renderPrincipalTab() {
     return `
       <div class="tab-content">
@@ -206,6 +255,63 @@ class BuilderSidebar extends HTMLElement {
 
   render() {
     this.shadowRoot.innerHTML = `
+      ${this.getStyles()}
+      <div class="sidebar-container">
+        ${
+          this.showingEditor
+            ? `
+          <div class="editor-container">
+            <div class="editor-header">
+              <button class="back-button" id="backButton">
+                <span>←</span>
+                <span>Back</span>
+              </button>
+              <h3 class="editor-title">Edit ${
+                this.selectedElement?.type || "Element"
+              }</h3>
+            </div>
+            <div class="editor-content">
+              <element-editor></element-editor>
+            </div>
+          </div>
+        `
+            : this.renderMainSidebar()
+        }
+      </div>
+    `;
+
+    if (this.showingEditor) {
+      requestAnimationFrame(() => {
+        const editor = this.shadowRoot.querySelector("element-editor");
+        const backButton = this.shadowRoot.getElementById("backButton");
+
+        if (editor && this.selectedElement) {
+          // Asegurarse de que el elemento personalizado esté definido antes de usarlo
+          if (customElements.get("element-editor")) {
+            editor.setElement(this.selectedElement);
+          } else {
+            console.error("element-editor custom element is not defined");
+          }
+        }
+
+        if (backButton) {
+          backButton.addEventListener("click", () => {
+            this.showingEditor = false;
+            this.selectedElement = null;
+            this.render();
+            this.setupTabListeners();
+            this.setupDragAndDrop();
+          });
+        }
+      });
+    } else {
+      this.setupTabListeners();
+      this.setupDragAndDrop();
+    }
+  }
+
+  getStyles() {
+    return `
       <style>
         :host {
           display: block;
@@ -357,7 +463,6 @@ class BuilderSidebar extends HTMLElement {
           padding: 0.5rem;
           border-radius: 4px;
           margin-right: 0.25rem;
-          height: 32px;
         }
         
         .back-button:hover {
@@ -376,80 +481,13 @@ class BuilderSidebar extends HTMLElement {
           flex: 1;
           overflow-y: auto;
         }
+
+        element-editor {
+          display: block;
+          height: 100%;
+        }
       </style>
-
-      <div class="sidebar-container">
-        ${
-          this.showingEditor
-            ? `
-          <div class="editor-container">
-            <div class="editor-header">
-              <button class="back-button" id="backButton">
-                <span>←</span>
-                <span>Back</span>
-              </button>
-              <h3 class="editor-title">Edit ${
-                this.selectedElement?.type || "Element"
-              }</h3>
-            </div>
-            <div class="editor-content">
-              <element-editor id="elementEditor"></element-editor>
-            </div>
-          </div>
-        `
-            : `
-          <div class="tabs">
-            <button class="tab ${
-              this.currentTab === "principal" ? "active" : ""
-            }" data-tab="principal">
-              Principal
-            </button>
-            <button class="tab ${
-              this.currentTab === "rows" ? "active" : ""
-            }" data-tab="rows">
-              Filas
-            </button>
-            <button class="tab ${
-              this.currentTab === "elements" ? "active" : ""
-            }" data-tab="elements">
-              Elementos
-            </button>
-          </div>
-          ${
-            this.currentTab === "principal"
-              ? this.renderPrincipalTab()
-              : this.currentTab === "rows"
-              ? this.renderRowsTab()
-              : this.renderElementsTab()
-          }
-        `
-        }
-      </div>
     `;
-
-    if (this.showingEditor) {
-      requestAnimationFrame(() => {
-        const editor = this.shadowRoot.getElementById("elementEditor");
-        const backButton = this.shadowRoot.getElementById("backButton");
-
-        if (editor && this.selectedElement) {
-          editor.setElement(this.selectedElement);
-        }
-
-        if (backButton) {
-          backButton.addEventListener("click", () => {
-            this.showingEditor = false;
-            this.selectedElement = null;
-            this.render();
-            this.setupTabListeners();
-            this.setupDragAndDrop();
-          });
-        }
-      });
-    } else {
-      this.setupTabListeners();
-      this.setupDragAndDrop();
-    }
   }
 
   static get observedAttributes() {

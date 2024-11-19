@@ -573,7 +573,7 @@ class BuilderCanvas extends HTMLElement {
         tag: "h2",
         content: "Nuevo Encabezado",
         styles: {
-          color: "#333333", // Cambiar de #333 a #333333
+          color: "#333333",
           margin: "0 0 1rem 0",
           padding: "0.5rem",
           fontFamily: "inherit",
@@ -612,6 +612,73 @@ class BuilderCanvas extends HTMLElement {
           borderRadius: "4px",
           cursor: "pointer",
           fontFamily: "inherit",
+        },
+      },
+      table: {
+        tag: "table",
+        attributes: {
+          rows: 3,
+          columns: 3,
+          headerStyle: "top",
+        },
+        content: `
+          <tr>
+            <th>Encabezado 1</th>
+            <th>Encabezado 2</th>
+            <th>Encabezado 3</th>
+          </tr>
+          <tr>
+            <td>Celda 1</td>
+            <td>Celda 2</td>
+            <td>Celda 3</td>
+          </tr>
+          <tr>
+            <td>Celda 4</td>
+            <td>Celda 5</td>
+            <td>Celda 6</td>
+          </tr>`,
+        styles: {
+          width: "100%",
+          borderCollapse: "collapse",
+          borderWidth: "1px",
+          borderColor: "#dddddd",
+          borderStyle: "solid",
+          cellPadding: "8px",
+        },
+      },
+      list: {
+        tag: "ul",
+        content: "Elemento 1\nElemento 2\nElemento 3",
+        styles: {
+          listStyleType: "disc",
+          paddingLeft: "20px",
+          margin: "1rem 0",
+          lineHeight: "1.6",
+        },
+      },
+      video: {
+        tag: "iframe",
+        attributes: {
+          src: "",
+          frameborder: "0",
+          allowfullscreen: true,
+          aspectRatio: "16/9",
+        },
+        styles: {
+          width: "100%",
+          aspectRatio: "16/9",
+          border: "none",
+          backgroundColor: "#f5f5f5",
+        },
+      },
+      spacer: {
+        tag: "div",
+        styles: {
+          height: "20px",
+          width: "100%",
+          backgroundColor: "transparent",
+          margin: "0",
+          padding: "0",
         },
       },
       divider: {
@@ -655,37 +722,76 @@ class BuilderCanvas extends HTMLElement {
       .map(([key, value]) => `${key}="${value}"`)
       .join(" ");
 
-    if (tag === "img") {
-      return `
-        <div class="builder-element-wrapper">
-          <div class="element-controls">
-            <button class="element-delete" data-element-id="${element.id}">×</button>
-          </div>
-          <img ${attributesString} 
-               style="${styleString}" 
-               class="builder-element" 
-               data-id="${element.id}"
-               data-type="${element.type}">
-        </div>
-      `;
-    }
-
-    return `
-      <div class="builder-element-wrapper">
-        <div class="element-controls">
-          <button class="element-delete" data-element-id="${
-            element.id
-          }">×</button>
-        </div>
-        <${tag} 
-          style="${styleString}" 
-          class="builder-element" 
-          data-id="${element.id}"
-          data-type="${element.type}">
-          ${content || ""}
-        </${tag}>
+    const elementControls = `
+      <div class="element-controls">
+        <button class="element-delete" data-element-id="${element.id}">×</button>
       </div>
     `;
+
+    // Manejar casos especiales por tipo
+    switch (element.type) {
+      case "table":
+        return `
+          <div class="builder-element-wrapper">
+            ${elementControls}
+            <table class="builder-element" style="${styleString}" data-id="${element.id}" data-type="${element.type}">
+              ${content}
+            </table>
+          </div>
+        `;
+
+      case "list":
+        const items = content
+          .split("\n")
+          .map((item) => `<li>${item.trim()}</li>`)
+          .join("");
+        return `
+          <div class="builder-element-wrapper">
+            ${elementControls}
+            <${tag} class="builder-element" style="${styleString}" data-id="${element.id}" data-type="${element.type}">
+              ${items}
+            </${tag}>
+          </div>
+        `;
+
+      case "video":
+        return `
+          <div class="builder-element-wrapper">
+            ${elementControls}
+            <div class="video-container builder-element" data-id="${element.id}" data-type="${element.type}" style="position: relative; ${styleString}">
+              <iframe ${attributesString} style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe>
+            </div>
+          </div>
+        `;
+
+      case "spacer":
+        return `
+          <div class="builder-element-wrapper">
+            ${elementControls}
+            <div class="builder-element" style="${styleString}" data-id="${element.id}" data-type="${element.type}"></div>
+          </div>
+        `;
+
+      case "image":
+        return `
+          <div class="builder-element-wrapper">
+            ${elementControls}
+            <img ${attributesString} style="${styleString}" class="builder-element" data-id="${element.id}" data-type="${element.type}">
+          </div>
+        `;
+
+      default:
+        return `
+          <div class="builder-element-wrapper">
+            ${elementControls}
+            <${tag} style="${styleString}" class="builder-element" data-id="${
+          element.id
+        }" data-type="${element.type}" ${attributesString}>
+              ${content || ""}
+            </${tag}>
+          </div>
+        `;
+    }
   }
 
   deleteElement(elementId) {
