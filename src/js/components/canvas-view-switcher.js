@@ -278,6 +278,7 @@ class CanvasViewSwitcher extends HTMLElement {
   </html>`;
   }
 
+  // En canvas-view-switcher.js
   convertToHTML(data) {
     if (!data || !data.rows) return "";
 
@@ -287,64 +288,46 @@ class CanvasViewSwitcher extends HTMLElement {
           .map((column) => {
             const elements = column.elements
               .map((element) => {
-                // Convertir estilos del objeto a string
-                const elementStyles = element.values?.styles || {};
-                const styleString = Object.entries(elementStyles)
+                const styleString = Object.entries(element.styles || {})
                   .map(([key, value]) => {
-                    // Convertir camelCase a kebab-case
                     const cssKey = key.replace(/([A-Z])/g, "-$1").toLowerCase();
-                    // Añadir unidades si es necesario
-                    if (typeof value === "number" || /^\d+$/.test(value)) {
-                      if (
-                        [
-                          "font-size",
-                          "padding",
-                          "margin",
-                          "border-width",
-                          "border-radius",
-                        ].some((prop) => cssKey.includes(prop))
-                      ) {
-                        return `${cssKey}: ${value}px`;
-                      }
-                    }
                     return `${cssKey}: ${value}`;
                   })
                   .join("; ");
 
                 // Manejar diferentes tipos de elementos
-                switch (element.values.type) {
+                switch (element.type) {
                   case "text":
                     return `<div style="${styleString}">${
-                      element.values.text || ""
+                      element.content || ""
                     }</div>`;
 
                   case "heading":
-                    const tag = element.values.tag || "h2";
+                    const tag = element.tag || "h2";
                     return `<${tag} style="${styleString}">${
-                      element.values.text || ""
+                      element.content || ""
                     }</${tag}>`;
 
                   case "image":
-                    const imgAttrs = element.values.attributes || {};
-                    const attrString = Object.entries(imgAttrs)
+                    const imgAttrs = Object.entries(element.attributes || {})
                       .map(([key, value]) => `${key}="${value}"`)
                       .join(" ");
-                    return `<img ${attrString} style="${styleString}">`;
+                    return `<img ${imgAttrs} style="${styleString}">`;
 
                   case "button":
                     return `<button style="${styleString}">${
-                      element.values.text || ""
+                      element.content || ""
                     }</button>`;
 
                   case "divider":
                     return `<hr style="${styleString}">`;
 
                   case "html":
-                    return element.values.text || "";
+                    return element.content || "";
 
                   default:
                     return `<div style="${styleString}">${
-                      element.values.text || ""
+                      element.content || ""
                     }</div>`;
                 }
               })
@@ -355,9 +338,9 @@ class CanvasViewSwitcher extends HTMLElement {
           .join("\n");
 
         return `
-          <div class="row" style="display: flex; margin: 0 auto; max-width: 1200px;">
-            ${columns}
-          </div>`;
+        <div class="row" style="display: flex; margin: 0 auto; max-width: 1200px;">
+          ${columns}
+        </div>`;
       })
       .join("\n");
   }

@@ -1,41 +1,79 @@
+import { CanvasStorage } from "./canvas-storage.js";
+
 class BuilderCanvas extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
     this.rows = [];
-    this.draggedRow = null;
-    this.draggedElement = null;
-    this.dropIndicator = null;
+    this.pageId = null;
   }
 
-  connectedCallback() {
+  // En builder-canvas.js
+  setPageId(pageId) {
+    console.log("Setting pageId:", pageId);
+    this.pageId = pageId;
+
+    // Cargar datos del storage específico del canvas
+    const savedData = CanvasStorage.loadCanvas(pageId);
+    if (savedData?.rows) {
+      this.rows = savedData.rows;
+      console.log("Loaded rows from canvas storage:", this.rows);
+    }
+
     this.render();
+  }
+
+  loadSavedCanvas() {
+    if (!this.pageId) return;
+
+    const savedData = CanvasStorage.loadCanvas(this.pageId);
+    if (savedData?.rows) {
+      this.rows = savedData.rows;
+      this.render();
+    }
+  }
+
+  // En builder-canvas.js, actualizar el connectedCallback
+  connectedCallback() {
+    console.log("Canvas connected, current rows:", this.rows);
+    // Asegurarnos de que tenemos los datos antes de renderizar
+    if (this.pageId) {
+      const savedData = CanvasStorage.loadCanvas(this.pageId);
+      if (savedData?.rows && this.rows.length === 0) {
+        this.rows = savedData.rows;
+      }
+    }
+
+    this.render();
+
     requestAnimationFrame(() => {
       this.setupDropZone();
       this.setupEventListeners();
       this.setupElementSelection();
     });
-
-    const canvas = this.shadowRoot.querySelector("builder-canvas");
-    if (canvas) {
-      canvas.addEventListener("contentChanged", (e) => {
-        this.editorData = e.detail;
-        this.updateViews();
-      });
-    }
   }
 
   emitContentChanged() {
+    if (!this.pageId) return;
+
+    const data = {
+      rows: this.rows,
+    };
+
+    console.log("Emitting content changed. Current rows:", this.rows);
+
     const event = new CustomEvent("contentChanged", {
-      detail: this.getEditorData(),
+      detail: data,
       bubbles: true,
       composed: true,
     });
+
     this.dispatchEvent(event);
   }
 
+  // En builder-canvas.js, reemplazar el método getEditorData()
   getEditorData() {
-    return {
+    const data = {
       rows: this.rows.map((row) => ({
         id: row.id,
         type: row.type,
@@ -44,16 +82,16 @@ class BuilderCanvas extends HTMLElement {
           elements: column.elements.map((element) => ({
             id: element.id,
             type: element.type,
-            values: {
-              ...element,
-              containerPadding: element.styles?.padding || "0px",
-              text: element.content,
-              styles: element.styles || {},
-            },
+            tag: element.tag,
+            content: element.content,
+            styles: element.styles || {},
+            attributes: element.attributes || {},
           })),
         })),
       })),
     };
+    console.log("Getting editor data:", data);
+    return data;
   }
 
   setupEventListeners() {
@@ -516,7 +554,6 @@ class BuilderCanvas extends HTMLElement {
   }
 
   addRow(rowType) {
-    console.log("Adding row:", rowType);
     const columns = parseInt(rowType.split("-")[1]);
     const rowConfig = {
       id: `row-${Date.now()}`,
@@ -530,19 +567,14 @@ class BuilderCanvas extends HTMLElement {
     };
 
     this.rows.push(rowConfig);
+    console.log("Added new row:", rowConfig);
+
+    // Guardar y emitir cambios
+    this.saveAndEmitChanges();
     this.render();
-
-    // Re-configurar los eventos después de añadir una fila
-    requestAnimationFrame(() => {
-      this.setupDropZone();
-      this.setupEventListeners();
-    });
-
-    this.emitContentChanged();
   }
 
   addElementToColumn(rowId, columnId, elementType) {
-    console.log("Adding element:", { rowId, columnId, elementType });
     const row = this.rows.find((r) => r.id === rowId);
     if (!row) return;
 
@@ -556,15 +588,11 @@ class BuilderCanvas extends HTMLElement {
     };
 
     column.elements.push(elementConfig);
+    console.log("Added new element:", elementConfig);
+
+    // Guardar y emitir cambios
+    this.saveAndEmitChanges();
     this.render();
-
-    // Re-configurar los eventos después de añadir un elemento
-    requestAnimationFrame(() => {
-      this.setupDropZone();
-      this.setupEventListeners();
-    });
-
-    this.emitContentChanged();
   }
 
   getDefaultContent(type) {
@@ -794,23 +822,41 @@ class BuilderCanvas extends HTMLElement {
     }
   }
 
+  saveAndEmitChanges() {
+    if (!this.pageId) return;
+
+    const data = {
+      rows: this.rows,
+    };
+
+    // Primero guardar en el storage
+    CanvasStorage.saveCanvas(this.pageId, data);
+
+    // Luego emitir el evento
+    const event = new CustomEvent("contentChanged", {
+      detail: data,
+      bubbles: true,
+      composed: true,
+    });
+
+    this.dispatchEvent(event);
+  }
+
   deleteElement(elementId) {
-    // Encontrar la fila y columna que contiene el elemento
     for (let row of this.rows) {
       for (let column of row.columns) {
         const elementIndex = column.elements.findIndex(
           (el) => el.id === elementId
         );
         if (elementIndex !== -1) {
-          // Eliminar el elemento
           column.elements.splice(elementIndex, 1);
+          // Guardar y emitir cambios
+          this.saveAndEmitChanges();
           this.render();
           return;
         }
       }
     }
-
-    this.emitContentChanged();
   }
 
   renderRow(row) {
@@ -995,12 +1041,17 @@ class BuilderCanvas extends HTMLElement {
   }
 
   render() {
+    console.log("Rendering canvas, rows:", this.rows);
     this.shadowRoot.innerHTML = `
         <style>
           :host {
             display: block;
             height: 100%;
             min-height: 100%;
+          }
+
+          * {
+            box-sizing: border-box;
           }
   
           .canvas-container {

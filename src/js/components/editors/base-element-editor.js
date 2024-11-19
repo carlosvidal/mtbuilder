@@ -267,6 +267,10 @@ export class BaseElementEditor extends HTMLElement {
             background: white;
             font-family: system-ui, -apple-system, sans-serif;
           }
+
+          * {
+            box-sizing: border-box;
+          }
   
           .editor-section {
             margin-bottom: 1.5rem;

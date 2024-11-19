@@ -19,6 +19,11 @@ class ElementEditor extends HTMLElement {
     if (!this.currentElement) {
       this.shadowRoot.innerHTML = `
         <style>
+
+          * {
+            box-sizing: border-box;
+          }
+            
           .no-selection {
             padding: 2rem;
             text-align: center;

@@ -319,6 +319,10 @@ class BuilderSidebar extends HTMLElement {
           background: white;
           font-family: system-ui, -apple-system, sans-serif;
         }
+
+          * {
+            box-sizing: border-box;
+          }
         
         .sidebar-container {
           display: flex;
@@ -445,10 +449,11 @@ class BuilderSidebar extends HTMLElement {
         .editor-header {
           display: flex;
           align-items: center;
-          padding: 0.75rem 1rem;
           border-bottom: 1px solid #ddd;
           background: #f5f5f5;
           gap: 0.5rem;
+          height: 48px;
+          margin-bottom: 1rem;
         }
         
         .back-button {

@@ -30,6 +30,10 @@ class PageBuilder extends HTMLElement {
           height: 100vh;
           background: #f5f5f5;
         }
+
+        * {
+          box-sizing: border-box;
+        }
         
         .page-builder {
           display: grid;
