@@ -5,6 +5,7 @@ export class CanvasStorage {
   }
 
   static saveCanvas(pageId, data) {
+    console.log("Saving canvas for pageId:", pageId, "Data:", data);
     if (!pageId) return;
 
     try {
@@ -18,13 +19,14 @@ export class CanvasStorage {
   }
 
   static loadCanvas(pageId) {
+    console.log("Loading canvas for pageId:", pageId);
     if (!pageId) return null;
 
     try {
       const key = this.getStorageKey(pageId);
       const savedData = localStorage.getItem(key);
       const parsedData = savedData ? JSON.parse(savedData) : null;
-      console.log("Canvas loaded successfully:", { key, data: parsedData });
+      console.log("Loaded canvas data:", parsedData);
       return parsedData;
     } catch (error) {
       console.error("Error loading canvas:", error);

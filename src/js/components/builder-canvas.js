@@ -11,6 +11,31 @@ class BuilderCanvas extends HTMLElement {
     this.pageId = null;
   }
 
+  static get observedAttributes() {
+    return ["pageId"];
+  }
+
+  attributeChangedCallback(name, oldValue, newValue) {
+    if (name === "pageId" && newValue && newValue !== oldValue) {
+      console.log("Canvas: pageId attribute changed to", newValue);
+      // Actualizar propiedad interna
+      this.pageId = newValue;
+
+      // Cargar datos inmediatamente
+      const savedData = CanvasStorage.loadCanvas(newValue);
+      console.log("Canvas attributeChangedCallback - loaded data:", savedData);
+
+      if (savedData?.rows) {
+        this.rows = JSON.parse(JSON.stringify(savedData.rows));
+        console.log(
+          "Canvas attributeChangedCallback - setting rows:",
+          this.rows
+        );
+        this.render();
+      }
+    }
+  }
+
   // En builder-canvas.js
   setPageId(pageId) {
     console.log("Setting pageId:", pageId);
@@ -21,13 +46,20 @@ class BuilderCanvas extends HTMLElement {
     console.log("Loaded canvas data:", savedData);
 
     if (savedData?.rows) {
-      this.rows = savedData.rows;
+      // Hacer una copia profunda de los datos
+      this.rows = JSON.parse(JSON.stringify(savedData.rows));
+      console.log("Setting rows from storage:", this.rows);
+
+      // Forzar una actualización
       this.render();
-      this.emitContentChanged(); // Emitir evento inicial
     }
+
+    // Emitir evento de cambio de contenido
+    this.emitContentChanged();
   }
 
   loadSavedCanvas() {
+    console.log("Loading saved canvas for pageId:", this.pageId);
     if (!this.pageId) return;
 
     const savedData = CanvasStorage.loadCanvas(this.pageId);
@@ -39,8 +71,17 @@ class BuilderCanvas extends HTMLElement {
 
   // En builder-canvas.js, actualizar el connectedCallback
   connectedCallback() {
-    console.log("Canvas connected, current rows:", this.rows);
+    console.log("Canvas connected");
+    const pageId = this.getAttribute("pageId");
+    if (pageId) {
+      this.pageId = pageId;
+      const savedData = CanvasStorage.loadCanvas(pageId);
+      if (savedData?.rows) {
+        this.rows = JSON.parse(JSON.stringify(savedData.rows));
+      }
+    }
     this.render();
+
     requestAnimationFrame(() => {
       this.setupDropZone();
       this.setupEventListeners();
@@ -1024,7 +1065,12 @@ class BuilderCanvas extends HTMLElement {
   }
 
   render() {
+    console.log("Rendering canvas, current pageId:", this.pageId);
     console.log("Rendering canvas, rows:", this.rows);
+
+    const currentPageId = this.pageId;
+    console.log("Render with pageId:", currentPageId);
+
     this.shadowRoot.innerHTML = `
         <style>
           :host {
@@ -1289,26 +1335,30 @@ class BuilderCanvas extends HTMLElement {
             box-shadow: 0 0 0 4px rgba(33, 150, 243, 0.2);
           }
         </style>
+
+        
   
        <div class="canvas-container">
-        <div class="canvas-dropzone ${this.rows.length === 0 ? "empty" : ""}">
-          ${
-            this.rows.length === 0
-              ? `<div class="empty-message">
-                <h3>Comienza tu diseño</h3>
-                <p>Arrastra filas desde el panel lateral para comenzar</p>
-              </div>`
-              : this.rows.map((row) => this.renderRow(row)).join("")
-          }
-        </div>
+      <div class="debug-info" style="position: fixed; top: 10px; right: 10px; background: #f0f0f0; padding: 10px; border-radius: 4px; font-family: monospace;">
+        PageID: ${currentPageId || "null"}<br>
+        Rows: ${this.rows.length}
       </div>
+      
+      <div class="canvas-dropzone ${
+        this.rows.length === 0 ? "empty" : ""
+      }" data-page-id="${currentPageId || ""}">
+        ${
+          this.rows.length === 0
+            ? `<div class="empty-message">
+               <h3>Comienza tu diseño</h3>
+               <p>Arrastra filas desde el panel lateral para comenzar</p>
+               <p><small>ID: ${currentPageId || "null"}</small></p>
+              </div>`
+            : this.rows.map((row) => this.renderRow(row)).join("")
+        }
+      </div>
+    </div>
       `;
-
-    requestAnimationFrame(() => {
-      this.setupDropZone();
-      this.setupEventListeners();
-      this.setupElementSelection();
-    });
 
     this.shadowRoot.querySelector("style").textContent += `
       .builder-element[contenteditable="true"] {
@@ -1323,6 +1373,12 @@ class BuilderCanvas extends HTMLElement {
         box-shadow: 0 0 0 4px rgba(33, 150, 243, 0.2);
       }
     `;
+
+    requestAnimationFrame(() => {
+      this.setupDropZone();
+      this.setupEventListeners();
+      this.setupElementSelection();
+    });
   }
 }
 

@@ -1,12 +1,4 @@
 // page-builder.js
-import { registerEditors } from "./register-editors.js";
-import { BuilderSidebar } from "./builder-sidebar.js";
-import { BuilderCanvas } from "./builder-canvas.js";
-import { CanvasViewSwitcher } from "./canvas-view-switcher.js";
-
-// Registrar todos los editores antes de inicializar el PageBuilder
-registerEditors();
-
 class PageBuilder extends HTMLElement {
   constructor() {
     super();
@@ -17,11 +9,36 @@ class PageBuilder extends HTMLElement {
     }
   }
 
+  attributeChangedCallback(name, oldValue, newValue) {
+    if (name === "pageId") {
+      console.log("PageBuilder: pageId attribute changed to", newValue);
+      const canvas = this.shadowRoot.querySelector("builder-canvas");
+      if (canvas) {
+        console.log("PageBuilder: Setting pageId on canvas:", newValue);
+        canvas.setAttribute("pageId", newValue); // Cambiar esta línea
+      }
+    }
+  }
+
+  static get observedAttributes() {
+    return ["pageId"];
+  }
+
   connectedCallback() {
+    // Obtener pageId del atributo si existe
+    const pageId = this.getAttribute("pageId");
+    console.log("PageBuilder connected, pageId:", pageId);
+
     this.render();
   }
 
   render() {
+    const pageId = this.getAttribute("pageId");
+    console.log(
+      "PageBuilder rendering with pageId:",
+      this.getAttribute("pageId")
+    );
+
     this.shadowRoot.innerHTML = `
       <style>
         :host {
@@ -31,29 +48,19 @@ class PageBuilder extends HTMLElement {
           background: #f5f5f5;
         }
 
-        * {
-          box-sizing: border-box;
-        }
-        
         .page-builder {
           display: grid;
           grid-template-columns: 300px 1fr;
-          grid-template-rows: auto 1fr;
-          grid-template-areas: 
-            "toolbar toolbar"
-            "sidebar canvas";
           height: 100%;
         }
 
         .sidebar-container {
-          grid-area: sidebar;
           border-right: 1px solid #eee;
           overflow-y: auto;
           background: white;
         }
 
         .canvas-container {
-          grid-area: canvas;
           overflow: hidden;
           background: white;
         }
@@ -64,7 +71,7 @@ class PageBuilder extends HTMLElement {
           <builder-sidebar></builder-sidebar>
         </div>
         <div class="canvas-container">
-          <canvas-view-switcher></canvas-view-switcher>
+          <builder-canvas></builder-canvas>
         </div>
       </div>
     `;
@@ -72,3 +79,4 @@ class PageBuilder extends HTMLElement {
 }
 
 customElements.define("page-builder", PageBuilder);
+export { PageBuilder };
