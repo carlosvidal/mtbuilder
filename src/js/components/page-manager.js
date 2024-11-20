@@ -26,30 +26,26 @@ export class PageManager extends HTMLElement {
   }
 
   loadBuilder(pageId) {
-    this.currentPageId = pageId;
+    this.currentPageId = pageId; // Asegurarse de establecer el currentPageId
 
     requestAnimationFrame(() => {
       const builder = this.shadowRoot.querySelector("page-builder");
-      const canvas = builder?.shadowRoot.querySelector("builder-canvas");
+      if (!builder) return;
 
-      if (canvas) {
-        const pageData = this.pages.find((p) => p.id === pageId);
-        if (pageData?.data) {
-          // Primero guardamos en el canvas storage
-          CanvasStorage.saveCanvas(pageId, pageData.data);
-
-          // Luego configuramos el canvas
-          canvas.rows = [...(pageData.data.rows || [])];
-          canvas.setPageId(pageId);
-        }
+      // Obtener los datos de la página
+      const pageData = this.pages.find((p) => p.id === pageId);
+      if (pageData?.data) {
+        // Guardar en CanvasStorage antes de configurar el canvas
+        CanvasStorage.saveCanvas(pageId, pageData.data);
       }
 
+      // Configurar el listener para cambios una sola vez
       if (!this._changeListener) {
         this._changeListener = (e) => {
           this.savePage({
-            id: pageId,
+            id: this.currentPageId,
             data: e.detail,
-            name: this.pages.find((p) => p.id === pageId)?.name,
+            name: this.pages.find((p) => p.id === this.currentPageId)?.name,
           });
         };
         builder.addEventListener("contentChanged", this._changeListener);
@@ -57,46 +53,32 @@ export class PageManager extends HTMLElement {
     });
   }
 
-  handleEdit(pageId) {
-    const pageData = this.pages.find((p) => p.id === pageId);
-    console.log("Handling edit for page:", pageData);
-
-    if (pageData) {
-      this.currentPageId = pageId;
-      this.render();
-
-      // Configurar el canvas después del render
-      requestAnimationFrame(() => {
-        this.loadBuilder(pageId);
-      });
-    }
-  }
-
   savePage(pageData) {
-    if (!pageData?.id) return;
-
     const existingPageIndex = this.pages.findIndex((p) => p.id === pageData.id);
-    console.log("Saving page:", pageData);
 
     const page = {
-      id: pageData.id,
-      name: pageData.name || `Página sin título ${this.pages.length + 1}`,
+      id: pageData.id || `page-${Date.now()}`,
+      name:
+        pageData.name ||
+        (existingPageIndex >= 0
+          ? this.pages[existingPageIndex].name
+          : `Página sin título ${this.pages.length + 1}`),
       lastModified: new Date().toISOString(),
       data: pageData.data || { rows: [] },
     };
 
-    // Actualizar la lista de páginas
     if (existingPageIndex >= 0) {
       this.pages[existingPageIndex] = page;
     } else {
       this.pages.push(page);
     }
 
-    // Guardar en AMBOS almacenamientos
+    // Guardar en ambos almacenamientos
     localStorage.setItem("pageBuilderPages", JSON.stringify(this.pages));
     CanvasStorage.saveCanvas(page.id, page.data);
 
-    console.log("Page saved in both storages:", page);
+    console.log("Saved page:", page);
+    console.log("Current pages:", this.pages);
   }
 
   deletePage(pageId) {

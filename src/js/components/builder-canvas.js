@@ -5,6 +5,9 @@ class BuilderCanvas extends HTMLElement {
     super();
     this.attachShadow({ mode: "open" });
     this.rows = [];
+    this.draggedRow = null;
+    this.draggedElement = null;
+    this.dropIndicator = null;
     this.pageId = null;
   }
 
@@ -13,14 +16,15 @@ class BuilderCanvas extends HTMLElement {
     console.log("Setting pageId:", pageId);
     this.pageId = pageId;
 
-    // Cargar datos del storage específico del canvas
+    // Cargar datos del storage
     const savedData = CanvasStorage.loadCanvas(pageId);
+    console.log("Loaded canvas data:", savedData);
+
     if (savedData?.rows) {
       this.rows = savedData.rows;
-      console.log("Loaded rows from canvas storage:", this.rows);
+      this.render();
+      this.emitContentChanged(); // Emitir evento inicial
     }
-
-    this.render();
   }
 
   loadSavedCanvas() {
@@ -36,16 +40,7 @@ class BuilderCanvas extends HTMLElement {
   // En builder-canvas.js, actualizar el connectedCallback
   connectedCallback() {
     console.log("Canvas connected, current rows:", this.rows);
-    // Asegurarnos de que tenemos los datos antes de renderizar
-    if (this.pageId) {
-      const savedData = CanvasStorage.loadCanvas(this.pageId);
-      if (savedData?.rows && this.rows.length === 0) {
-        this.rows = savedData.rows;
-      }
-    }
-
     this.render();
-
     requestAnimationFrame(() => {
       this.setupDropZone();
       this.setupEventListeners();
@@ -54,26 +49,25 @@ class BuilderCanvas extends HTMLElement {
   }
 
   emitContentChanged() {
-    if (!this.pageId) return;
+    const data = this.getEditorData();
 
-    const data = {
-      rows: this.rows,
-    };
+    // Guardar en storage
+    if (this.pageId) {
+      CanvasStorage.saveCanvas(this.pageId, data);
+    }
 
-    console.log("Emitting content changed. Current rows:", this.rows);
-
+    // Emitir evento
     const event = new CustomEvent("contentChanged", {
       detail: data,
       bubbles: true,
       composed: true,
     });
-
     this.dispatchEvent(event);
   }
 
   // En builder-canvas.js, reemplazar el método getEditorData()
   getEditorData() {
-    const data = {
+    return {
       rows: this.rows.map((row) => ({
         id: row.id,
         type: row.type,
@@ -90,8 +84,6 @@ class BuilderCanvas extends HTMLElement {
         })),
       })),
     };
-    console.log("Getting editor data:", data);
-    return data;
   }
 
   setupEventListeners() {
@@ -554,6 +546,7 @@ class BuilderCanvas extends HTMLElement {
   }
 
   addRow(rowType) {
+    console.log("Adding row:", rowType);
     const columns = parseInt(rowType.split("-")[1]);
     const rowConfig = {
       id: `row-${Date.now()}`,
@@ -567,14 +560,19 @@ class BuilderCanvas extends HTMLElement {
     };
 
     this.rows.push(rowConfig);
-    console.log("Added new row:", rowConfig);
-
-    // Guardar y emitir cambios
-    this.saveAndEmitChanges();
     this.render();
+
+    // Re-configurar los eventos después de añadir una fila
+    requestAnimationFrame(() => {
+      this.setupDropZone();
+      this.setupEventListeners();
+    });
+
+    this.emitContentChanged();
   }
 
   addElementToColumn(rowId, columnId, elementType) {
+    console.log("Adding element:", { rowId, columnId, elementType });
     const row = this.rows.find((r) => r.id === rowId);
     if (!row) return;
 
@@ -588,11 +586,15 @@ class BuilderCanvas extends HTMLElement {
     };
 
     column.elements.push(elementConfig);
-    console.log("Added new element:", elementConfig);
-
-    // Guardar y emitir cambios
-    this.saveAndEmitChanges();
     this.render();
+
+    // Re-configurar los eventos después de añadir un elemento
+    requestAnimationFrame(() => {
+      this.setupDropZone();
+      this.setupEventListeners();
+    });
+
+    this.emitContentChanged();
   }
 
   getDefaultContent(type) {
@@ -822,26 +824,6 @@ class BuilderCanvas extends HTMLElement {
     }
   }
 
-  saveAndEmitChanges() {
-    if (!this.pageId) return;
-
-    const data = {
-      rows: this.rows,
-    };
-
-    // Primero guardar en el storage
-    CanvasStorage.saveCanvas(this.pageId, data);
-
-    // Luego emitir el evento
-    const event = new CustomEvent("contentChanged", {
-      detail: data,
-      bubbles: true,
-      composed: true,
-    });
-
-    this.dispatchEvent(event);
-  }
-
   deleteElement(elementId) {
     for (let row of this.rows) {
       for (let column of row.columns) {
@@ -849,9 +831,10 @@ class BuilderCanvas extends HTMLElement {
           (el) => el.id === elementId
         );
         if (elementIndex !== -1) {
+          // Eliminar el elemento
           column.elements.splice(elementIndex, 1);
-          // Guardar y emitir cambios
-          this.saveAndEmitChanges();
+          // Guardar los cambios en el storage
+          this.emitContentChanged();
           this.render();
           return;
         }
