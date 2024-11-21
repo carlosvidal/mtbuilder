@@ -91,6 +91,7 @@ class BuilderCanvas extends HTMLElement {
 
   emitContentChanged() {
     const data = this.getEditorData();
+    console.log("Emitting content changed:", data);
 
     // Guardar en storage
     if (this.pageId) {
@@ -106,7 +107,21 @@ class BuilderCanvas extends HTMLElement {
     this.dispatchEvent(event);
   }
 
-  // En builder-canvas.js, reemplazar el método getEditorData()
+  // En builder-canvas.js, reemplazar el método getEditorData()// En builder-canvas.js, modificar el método setEditorData
+  setEditorData(data) {
+    console.log("Setting editor data:", data);
+    if (!data || !data.rows) return;
+
+    // Actualizar las filas con los nuevos datos
+    this.rows = JSON.parse(JSON.stringify(data.rows));
+
+    // Renderizar el nuevo estado
+    this.render();
+
+    // No es necesario emitir aquí porque render() ya lo hace
+  }
+
+  // También debemos agregar el método getEditorData si no existe
   getEditorData() {
     return {
       rows: this.rows.map((row) => ({
@@ -1024,7 +1039,6 @@ class BuilderCanvas extends HTMLElement {
             `[data-id="${elementId}"]`
           );
           if (elementToUpdate) {
-            // Procesar cada propiedad individualmente
             Object.entries(styles).forEach(([key, value]) => {
               const cssKey = key.replace(/([A-Z])/g, "-$1").toLowerCase();
               if (key.startsWith("margin") || key.startsWith("padding")) {
@@ -1039,13 +1053,11 @@ class BuilderCanvas extends HTMLElement {
           break;
         }
       }
-      if (elementUpdated) {
-        this.emitContentChanged();
-      }
     }
 
-    // Emitir evento de cambio de contenido para actualizar las otras vistas
-    this.emitContentChanged();
+    if (elementUpdated) {
+      this.emitContentChanged(); // Emitir cambios solo si hubo una actualización
+    }
   }
 
   findElementById(id) {
@@ -1378,6 +1390,7 @@ class BuilderCanvas extends HTMLElement {
       this.setupDropZone();
       this.setupEventListeners();
       this.setupElementSelection();
+      this.emitContentChanged();
     });
   }
 }

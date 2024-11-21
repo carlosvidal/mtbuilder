@@ -12,10 +12,10 @@ class PageBuilder extends HTMLElement {
   attributeChangedCallback(name, oldValue, newValue) {
     if (name === "pageId") {
       console.log("PageBuilder: pageId attribute changed to", newValue);
-      const canvas = this.shadowRoot.querySelector("builder-canvas");
-      if (canvas) {
-        console.log("PageBuilder: Setting pageId on canvas:", newValue);
-        canvas.setAttribute("pageId", newValue); // Cambiar esta línea
+      const switcher = this.shadowRoot.querySelector("canvas-view-switcher");
+      if (switcher) {
+        console.log("PageBuilder: Setting pageId on switcher:", newValue);
+        switcher.setAttribute("pageId", newValue);
       }
     }
   }
@@ -25,10 +25,8 @@ class PageBuilder extends HTMLElement {
   }
 
   connectedCallback() {
-    // Obtener pageId del atributo si existe
     const pageId = this.getAttribute("pageId");
     console.log("PageBuilder connected, pageId:", pageId);
-
     this.render();
   }
 
@@ -71,7 +69,7 @@ class PageBuilder extends HTMLElement {
           <builder-sidebar></builder-sidebar>
         </div>
         <div class="canvas-container">
-          <builder-canvas></builder-canvas>
+          <canvas-view-switcher pageId="${pageId || ""}"></canvas-view-switcher>
         </div>
       </div>
     `;
