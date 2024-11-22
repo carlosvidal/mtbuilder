@@ -12,10 +12,18 @@ class CanvasViewSwitcher extends HTMLElement {
     window.builderEvents = window.builderEvents || new EventTarget();
 
     // Bind methods
-    this.handleContentChanged = this.handleContentChanged.bind(this);
     this.handleHistoryChange = this.handleHistoryChange.bind(this);
     this.handleUndo = this.handleUndo.bind(this);
     this.handleRedo = this.handleRedo.bind(this);
+
+    // Almacenar referencia al listener
+    this.contentChangedListener = (event) => {
+      this.editorData = event.detail;
+      if (!this._isUndoRedoOperation) {
+        this.history.pushState(this.editorData);
+      }
+      this.updateViews();
+    };
   }
 
   static get observedAttributes() {
@@ -47,7 +55,7 @@ class CanvasViewSwitcher extends HTMLElement {
     if (this.canvas) {
       this.canvas.removeEventListener(
         "contentChanged",
-        this.handleContentChanged
+        this.contentChangedListener
       );
     }
     window.builderEvents.removeEventListener(
@@ -56,79 +64,62 @@ class CanvasViewSwitcher extends HTMLElement {
     );
   }
 
+  // En canvas-view-switcher.js
   handleHistoryChange(event) {
-    console.log("History change event received:", event.detail);
     const { canUndo, canRedo } = event.detail;
+    console.log("History change received:", { canUndo, canRedo });
 
     const undoButton = this.shadowRoot.querySelector(".undo-button");
     const redoButton = this.shadowRoot.querySelector(".redo-button");
 
     if (undoButton) {
       undoButton.disabled = !canUndo;
-      console.log("Undo button state:", !canUndo);
+      undoButton.classList.toggle("active", canUndo);
     }
+
     if (redoButton) {
       redoButton.disabled = !canRedo;
-      console.log("Redo button state:", !canRedo);
+      redoButton.classList.toggle("active", canRedo);
     }
-  }
-
-  // En canvas-view-switcher.js, actualizar el handleContentChanged
-  handleContentChanged(event) {
-    console.log(
-      "CanvasViewSwitcher: Content changed event received",
-      event.detail
-    );
-
-    // Actualizar el estado local
-    this.editorData = event.detail;
-
-    // Solo guardar en el historial si no estamos en medio de un undo/redo
-    if (!this._isUndoRedoOperation) {
-      console.log("Pushing state to history:", this.editorData);
-      this.history.pushState(this.editorData);
-    }
-
-    this.updateViews();
   }
 
   handleUndo() {
     const previousState = this.history.undo();
-    console.log("Undoing to previous state:", previousState);
     if (previousState && this.canvas) {
       this._isUndoRedoOperation = true;
+      this.canvas._isUndoRedoOperation = true; // Importante: también actualizar el estado en el canvas
+
       try {
-        // Actualizar el estado local
         this.editorData = previousState;
-        // Actualizar el canvas
-        this.canvas.setEditorData(previousState);
-        // Actualizar las vistas
+        this.canvas.setEditorData(previousState, true); // Pasar suppressEvent como true
         this.updateViews();
       } finally {
-        // Asegurarnos de que siempre se resetea la bandera
         this._isUndoRedoOperation = false;
+        this.canvas._isUndoRedoOperation = false;
       }
     }
   }
 
   handleRedo() {
+    console.log("Redo button clicked");
     const nextState = this.history.redo();
-    console.log("Redoing to next state:", nextState);
+    console.log("Next state:", nextState);
+
     if (nextState && this.canvas) {
       this._isUndoRedoOperation = true;
+      this.canvas._isUndoRedoOperation = true; // Importante: también actualizar el estado en el canvas
+
       try {
-        // Actualizar el estado local
         this.editorData = nextState;
-        // Actualizar el canvas
-        this.canvas.setEditorData(nextState);
-        // Actualizar las vistas
+        this.canvas.setEditorData(nextState, true); // Pasar suppressEvent como true
         this.updateViews();
       } finally {
-        // Asegurarnos de que siempre se resetea la bandera
         this._isUndoRedoOperation = false;
+        this.canvas._isUndoRedoOperation = false;
       }
     }
   }
+
   setupInitialDOM() {
     const pageId = this.getAttribute("pageId");
     console.log("CanvasViewSwitcher: Setting up DOM with pageId:", pageId);
@@ -257,36 +248,67 @@ class CanvasViewSwitcher extends HTMLElement {
             padding: 0 1rem;
           }
 
+           .undo-button,
+    .redo-button {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .undo-button.active,
+    .redo-button.active {
+      opacity: 1;
+      cursor: pointer;
+    }
+
           .undo-button,
-          .redo-button {
-            display: flex;
-            align-items: center;
-            gap: 0.25rem;
-            padding: 0.5rem 1rem;
-            border: none;
-            background: none;
-            color: #666;
-            cursor: pointer;
-            font-size: 0.875rem;
-            border-radius: 4px;
-          }
+.redo-button {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem 1rem;
+  border: none;
+  background: none;
+  color: #666;
+  cursor: pointer;
+  font-size: 0.875rem;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
 
-          .undo-button:hover,
-          .redo-button:hover {
-            background: rgba(0, 0, 0, 0.05);
-            color: #333;
-          }
+.undo-button:not(:disabled):hover,
+.redo-button:not(:disabled):hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #333;
+}
 
-          .undo-button:disabled,
-          .redo-button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-          }
+.undo-button:disabled,
+.redo-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
 
-          .button-icon {
-            font-size: 1.2em;
-            line-height: 1;
-          }
+.undo-button:disabled:hover,
+.redo-button:disabled:hover {
+  background: none;
+  color: #666;
+}
+
+.button-icon {
+  font-size: 1.2em;
+  line-height: 1;
+}
+
+.undo-button:not(:disabled),
+.redo-button:not(:disabled) {
+  color: #2196F3;
+}
+
+.undo-button:not(:disabled):hover,
+.redo-button:not(:disabled):hover {
+  background: rgba(33, 150, 243, 0.1);
+  color: #1976D2;
+}
         </style>
   
         <div class="view-container">
@@ -329,11 +351,6 @@ class CanvasViewSwitcher extends HTMLElement {
     // Guardar referencia al canvas
     this.canvas = this.shadowRoot.querySelector("builder-canvas");
 
-    // Configurar listeners
-    if (this.canvas) {
-      this.canvas.addEventListener("contentChanged", this.handleContentChanged);
-    }
-
     // Activar la vista inicial
     this.updateActiveView();
   }
@@ -367,61 +384,50 @@ class CanvasViewSwitcher extends HTMLElement {
     // Event listeners para las pestañas
     this.shadowRoot.querySelectorAll(".view-tab").forEach((tab) => {
       tab.addEventListener("click", () => {
-        this.shadowRoot
-          .querySelectorAll(".view-tab")
-          .forEach((t) => t.classList.remove("active"));
-        tab.classList.add("active");
-
         this.currentView = tab.dataset.view;
-
-        this.shadowRoot.querySelectorAll(".view").forEach((view) => {
-          view.classList.remove("active");
-          if (view.classList.contains(`${this.currentView}-view`)) {
-            view.classList.add("active");
-          }
-        });
-
-        if (this.currentView !== "design") {
-          this.updateViews();
-        }
+        this.updateActiveView();
       });
     });
 
-    // Event listeners para undo/redo (movidos fuera del loop de pestañas)
+    // Event listeners para undo/redo
     const undoButton = this.shadowRoot.querySelector(".undo-button");
     const redoButton = this.shadowRoot.querySelector(".redo-button");
 
     if (undoButton) {
-      undoButton.addEventListener("click", this.handleUndo);
+      undoButton.addEventListener("click", () => {
+        console.log("Undo button clicked");
+        this.handleUndo();
+      });
     }
+
     if (redoButton) {
-      redoButton.addEventListener("click", this.handleRedo);
+      redoButton.addEventListener("click", () => {
+        console.log("Redo button clicked");
+        this.handleRedo();
+      });
+    }
+
+    // Escuchar cambios en el canvas
+    if (this.canvas) {
+      this.canvas.addEventListener("contentChanged", (event) => {
+        console.log("Content changed event received");
+        this.editorData = event.detail;
+
+        // Solo guardar en el historial si no estamos en una operación undo/redo
+        if (!this._isUndoRedoOperation && !this.canvas._isUndoRedoOperation) {
+          console.log("Pushing new state to history");
+          this.history.pushState(this.editorData);
+        }
+
+        this.updateViews();
+      });
     }
 
     // Escuchar cambios en el historial
     window.builderEvents.addEventListener(
       "historyChange",
-      this.handleHistoryChange
+      this.handleHistoryChange.bind(this)
     );
-
-    // Event listeners para los botones de copiar
-    this.shadowRoot.querySelectorAll(".copy-button").forEach((button) => {
-      button.addEventListener("click", () => {
-        const type = button.dataset.type;
-        const content =
-          type === "html"
-            ? this.generateHTML()
-            : JSON.stringify(this.editorData, null, 2);
-
-        navigator.clipboard.writeText(content).then(() => {
-          const originalText = button.textContent;
-          button.textContent = "Copied!";
-          setTimeout(() => {
-            button.textContent = originalText;
-          }, 2000);
-        });
-      });
-    });
   }
 
   updateViews() {

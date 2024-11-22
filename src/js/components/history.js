@@ -1,4 +1,3 @@
-// En history.js
 export class History {
   constructor() {
     this.states = [];
@@ -9,13 +8,22 @@ export class History {
   pushState(state) {
     if (!state) return;
 
-    // Si estamos en medio del historial, eliminar los estados futuros
+    console.log("Push State - Before:", {
+      statesLength: this.states.length,
+      currentIndex: this.currentIndex,
+    });
+
+    // Si estamos en el medio del historial, eliminar los estados futuros
     if (this.currentIndex < this.states.length - 1) {
+      console.log(
+        "Truncating future states from index:",
+        this.currentIndex + 1
+      );
       this.states = this.states.slice(0, this.currentIndex + 1);
     }
 
-    // Añadir el nuevo estado
-    this.states.push(this.cloneState(state));
+    // Agregar el nuevo estado
+    this.states.push(JSON.parse(JSON.stringify(state))); // Copia profunda
     this.currentIndex++;
 
     // Limitar el número de estados
@@ -24,8 +32,8 @@ export class History {
       this.currentIndex--;
     }
 
-    console.log("History: Pushed state", {
-      statesCount: this.states.length,
+    console.log("Push State - After:", {
+      statesLength: this.states.length,
       currentIndex: this.currentIndex,
       canUndo: this.canUndo(),
       canRedo: this.canRedo(),
@@ -35,33 +43,40 @@ export class History {
   }
 
   undo() {
-    if (this.canUndo()) {
-      this.currentIndex--;
-      console.log("History: Undo", {
-        statesCount: this.states.length,
-        currentIndex: this.currentIndex,
-        canUndo: this.canUndo(),
-        canRedo: this.canRedo(),
-      });
-      this.emitHistoryChange();
-      return this.cloneState(this.states[this.currentIndex]);
-    }
-    return null;
+    if (!this.canUndo()) return null;
+
+    this.currentIndex--;
+    const previousState = JSON.parse(
+      JSON.stringify(this.states[this.currentIndex])
+    );
+
+    console.log("Undo - After:", {
+      newIndex: this.currentIndex,
+      canUndo: this.canUndo(),
+      canRedo: this.canRedo(),
+    });
+
+    this.emitHistoryChange();
+    return previousState;
   }
 
   redo() {
-    if (this.canRedo()) {
-      this.currentIndex++;
-      console.log("History: Redo", {
-        statesCount: this.states.length,
-        currentIndex: this.currentIndex,
-        canUndo: this.canUndo(),
-        canRedo: this.canRedo(),
-      });
-      this.emitHistoryChange();
-      return this.cloneState(this.states[this.currentIndex]);
-    }
-    return null;
+    if (!this.canRedo()) return null;
+
+    this.currentIndex++;
+    const nextState = JSON.parse(
+      JSON.stringify(this.states[this.currentIndex])
+    );
+
+    console.log("Redo - After:", {
+      newIndex: this.currentIndex,
+      canUndo: this.canUndo(),
+      canRedo: this.canRedo(),
+      stateReturned: nextState ? "yes" : "no",
+    });
+
+    this.emitHistoryChange();
+    return nextState;
   }
 
   canUndo() {
@@ -72,7 +87,20 @@ export class History {
     return this.currentIndex < this.states.length - 1;
   }
 
+  clear() {
+    this.states = [];
+    this.currentIndex = -1;
+    this.emitHistoryChange();
+  }
+
   emitHistoryChange() {
+    console.log("Emitting history change:", {
+      canUndo: this.canUndo(),
+      canRedo: this.canRedo(),
+      statesCount: this.states.length,
+      currentIndex: this.currentIndex,
+    });
+
     const event = new CustomEvent("historyChange", {
       detail: {
         canUndo: this.canUndo(),
@@ -83,16 +111,9 @@ export class History {
       bubbles: true,
       composed: true,
     });
-    window.builderEvents.dispatchEvent(event);
-  }
 
-  cloneState(state) {
-    return JSON.parse(JSON.stringify(state));
-  }
-
-  clear() {
-    this.states = [];
-    this.currentIndex = -1;
-    this.emitHistoryChange();
+    if (window.builderEvents) {
+      window.builderEvents.dispatchEvent(event);
+    }
   }
 }

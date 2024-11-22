@@ -1,4 +1,5 @@
 import { CanvasStorage } from "./canvas-storage.js";
+import { History } from "./history.js";
 
 class BuilderCanvas extends HTMLElement {
   constructor() {
@@ -9,6 +10,8 @@ class BuilderCanvas extends HTMLElement {
     this.draggedElement = null;
     this.dropIndicator = null;
     this.pageId = null;
+    this._isUndoRedoOperation = false;
+    this.history = new History();
   }
 
   static get observedAttributes() {
@@ -78,6 +81,7 @@ class BuilderCanvas extends HTMLElement {
       const savedData = CanvasStorage.loadCanvas(pageId);
       if (savedData?.rows) {
         this.rows = JSON.parse(JSON.stringify(savedData.rows));
+        this.history.pushState(this.getEditorData());
       }
     }
     this.render();
@@ -89,36 +93,46 @@ class BuilderCanvas extends HTMLElement {
     });
   }
 
-  emitContentChanged() {
+  // En builder-canvas.js
+  // Actualizar emitContentChanged para manejar suppressEvent consistentemente
+  emitContentChanged(suppressEvent = false) {
     const data = this.getEditorData();
-    console.log("Emitting content changed:", data);
+    console.log("Emitting content changed:", {
+      suppressEvent,
+      isUndoRedo: this._isUndoRedoOperation,
+    });
 
-    // Guardar en storage
     if (this.pageId) {
       CanvasStorage.saveCanvas(this.pageId, data);
     }
 
-    // Emitir evento
-    const event = new CustomEvent("contentChanged", {
-      detail: data,
-      bubbles: true,
-      composed: true,
-    });
-    this.dispatchEvent(event);
+    if (!suppressEvent && !this._isUndoRedoOperation) {
+      const event = new CustomEvent("contentChanged", {
+        detail: data,
+        bubbles: true,
+        composed: true,
+      });
+      this.dispatchEvent(event);
+    }
   }
-
   // En builder-canvas.js, reemplazar el método getEditorData()// En builder-canvas.js, modificar el método setEditorData
-  setEditorData(data) {
-    console.log("Setting editor data:", data);
+  setEditorData(data, suppressEvent = false) {
     if (!data || !data.rows) return;
 
-    // Actualizar las filas con los nuevos datos
+    // Hacer una copia profunda de los datos para evitar referencias
     this.rows = JSON.parse(JSON.stringify(data.rows));
+    console.log("Setting editor data:", {
+      data,
+      suppressEvent,
+      isUndoRedo: this._isUndoRedoOperation,
+    });
 
-    // Renderizar el nuevo estado
-    this.render();
+    if (this.pageId) {
+      CanvasStorage.saveCanvas(this.pageId, this.getEditorData());
+    }
 
-    // No es necesario emitir aquí porque render() ya lo hace
+    // Llamar al render con el parámetro suppressEvent
+    this.render(suppressEvent);
   }
 
   // También debemos agregar el método getEditorData si no existe
@@ -1076,20 +1090,24 @@ class BuilderCanvas extends HTMLElement {
     return null;
   }
 
-  render() {
+  render(suppressEvent = false) {
     console.log("Rendering canvas, current pageId:", this.pageId);
     console.log("Rendering canvas, rows:", this.rows);
+    console.log("Render params:", {
+      suppressEvent,
+      isUndoRedo: this._isUndoRedoOperation,
+    });
 
     const currentPageId = this.pageId;
-    console.log("Render with pageId:", currentPageId);
 
+    // Aquí está todo el HTML necesario
     this.shadowRoot.innerHTML = `
-        <style>
-          :host {
-            display: block;
-            height: 100%;
-            min-height: 100%;
-          }
+      <style>
+        :host {
+          display: block;
+          height: 100%;
+          min-height: 100%;
+        }
 
           * {
             box-sizing: border-box;
@@ -1351,46 +1369,37 @@ class BuilderCanvas extends HTMLElement {
         
   
        <div class="canvas-container">
-      <div class="debug-info" style="position: fixed; top: 10px; right: 10px; background: #f0f0f0; padding: 10px; border-radius: 4px; font-family: monospace;">
-        PageID: ${currentPageId || "null"}<br>
-        Rows: ${this.rows.length}
+        <div class="debug-info" style="position: fixed; top: 10px; right: 10px; background: #f0f0f0; padding: 10px; border-radius: 4px; font-family: monospace;">
+          PageID: ${currentPageId || "null"}<br>
+          Rows: ${this.rows.length}
+        </div>
+        
+        <div class="canvas-dropzone ${
+          this.rows.length === 0 ? "empty" : ""
+        }" data-page-id="${currentPageId || ""}">
+          ${
+            this.rows.length === 0
+              ? `<div class="empty-message">
+                  <h3>Comienza tu diseño</h3>
+                  <p>Arrastra filas desde el panel lateral para comenzar</p>
+                  <p><small>ID: ${currentPageId || "null"}</small></p>
+                </div>`
+              : this.rows.map((row) => this.renderRow(row)).join("")
+          }
+        </div>
       </div>
-      
-      <div class="canvas-dropzone ${
-        this.rows.length === 0 ? "empty" : ""
-      }" data-page-id="${currentPageId || ""}">
-        ${
-          this.rows.length === 0
-            ? `<div class="empty-message">
-               <h3>Comienza tu diseño</h3>
-               <p>Arrastra filas desde el panel lateral para comenzar</p>
-               <p><small>ID: ${currentPageId || "null"}</small></p>
-              </div>`
-            : this.rows.map((row) => this.renderRow(row)).join("")
-        }
-      </div>
-    </div>
-      `;
-
-    this.shadowRoot.querySelector("style").textContent += `
-      .builder-element[contenteditable="true"] {
-        cursor: text;
-        outline: 2px solid #2196F3;
-        padding: 8px;
-        min-height: 1em;
-      }
-
-      .builder-element[contenteditable="true"]:focus {
-        outline: 2px solid #2196F3;
-        box-shadow: 0 0 0 4px rgba(33, 150, 243, 0.2);
-      }
     `;
 
+    // Configurar todo de manera asíncrona para asegurar que el DOM esté listo
     requestAnimationFrame(() => {
       this.setupDropZone();
       this.setupEventListeners();
       this.setupElementSelection();
-      this.emitContentChanged();
+
+      // Solo emitir eventos de cambio si no es una operación undo/redo y no está suprimido
+      if (!this._isUndoRedoOperation && !suppressEvent) {
+        this.emitContentChanged(suppressEvent);
+      }
     });
   }
 }
