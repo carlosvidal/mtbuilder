@@ -309,43 +309,119 @@ class CanvasViewSwitcher extends HTMLElement {
   background: rgba(33, 150, 243, 0.1);
   color: #1976D2;
 }
+
+.preview-view {
+        height: 100%;
+        overflow: auto;
+        background: #f8f9fa;
+        padding: 2rem;
+      }
+
+      .preview-frame {
+        width: 100%;
+        margin: 0 auto;
+        background: white;
+        min-height: 100vh;
+        box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+      }
+
+      .preview-frame.mobile {
+        max-width: 480px;
+      }
+
+      .preview-frame.tablet {
+        max-width: 768px;
+      }
+
+      .preview-frame.desktop {
+        max-width: 1200px;
+      }
+
+      .preview-controls {
+        position: fixed;
+        top: 1rem;
+        right: 1rem;
+        display: flex;
+        gap: 0.5rem;
+        background: white;
+        padding: 0.5rem;
+        border-radius: 4px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      }
+
+      .device-button {
+        padding: 0.5rem;
+        border: none;
+        background: none;
+        cursor: pointer;
+        opacity: 0.5;
+        transition: all 0.2s ease;
+      }
+
+      .device-button:hover {
+        opacity: 0.8;
+      }
+
+      .device-button.active {
+        opacity: 1;
+        color: #2196F3;
+      }
         </style>
   
-        <div class="view-container">
-          <div class="view-header">
-            <div class="view-tabs">
-              <button class="view-tab active" data-view="design">Design</button>
-              <button class="view-tab" data-view="html">HTML</button>
-              <button class="view-tab" data-view="json">JSON</button>
-            </div>
-            <div class="view-actions">
-              <button class="undo-button" disabled>
-                <span class="button-icon">↶</span>
-                Deshacer
-              </button>
-              <button class="redo-button" disabled>
-                <span class="button-icon">↷</span>
-                Rehacer
-              </button>
-            </div>
+       <div class="view-container">
+      <div class="view-header">
+        <div class="view-tabs">
+          <button class="view-tab active" data-view="design">Design</button>
+          <button class="view-tab" data-view="preview">Preview</button>
+          <button class="view-tab" data-view="html">HTML</button>
+          <button class="view-tab" data-view="json">JSON</button>
+        </div>
+        <div class="view-actions">
+          <button class="undo-button" disabled>
+            <span class="button-icon">↶</span>
+            Deshacer
+          </button>
+          <button class="redo-button" disabled>
+            <span class="button-icon">↷</span>
+            Rehacer
+          </button>
+        </div>
+      </div>
+
+      <div class="view-content">
+        <div class="view design-view active">
+          <builder-canvas pageId="${pageId || ""}"></builder-canvas>
+        </div>
+
+        <div class="view preview-view">
+          <div class="preview-controls">
+            <button class="device-button active" data-device="desktop" title="Desktop">
+              🖥️
+            </button>
+            <button class="device-button" data-device="tablet" title="Tablet">
+              📱
+            </button>
+            <button class="device-button" data-device="mobile" title="Mobile">
+              📱
+            </button>
           </div>
-  
-          <div class="view-content">
-            <div class="view design-view active">
-              <builder-canvas pageId="${pageId || ""}"></builder-canvas>
-            </div>
-  
-            <div class="view html-view code-view">
-              <button class="copy-button" data-type="html">Copy HTML</button>
-              <pre class="html-content"></pre>
-            </div>
-  
-            <div class="view json-view code-view">
-              <button class="copy-button" data-type="json">Copy JSON</button>
-              <pre class="json-content"></pre>
-            </div>
+          <div class="preview-frame desktop">
+            <div class="preview-content"></div>
           </div>
         </div>
+
+        <div class="view html-view code-view">
+          <button class="copy-button" data-type="html">Copy HTML</button>
+          <pre class="html-content"></pre>
+        </div>
+
+        <div class="view json-view code-view">
+          <button class="copy-button" data-type="json">Copy JSON</button>
+          <pre class="json-content"></pre>
+        </div>
+      </div>
+    </div>
       `;
 
     // Guardar referencia al canvas
@@ -428,13 +504,109 @@ class CanvasViewSwitcher extends HTMLElement {
       "historyChange",
       this.handleHistoryChange.bind(this)
     );
+
+    this.shadowRoot.querySelectorAll(".device-button").forEach((button) => {
+      button.addEventListener("click", () => {
+        // Remover clase active de todos los botones
+        this.shadowRoot.querySelectorAll(".device-button").forEach((btn) => {
+          btn.classList.remove("active");
+        });
+
+        // Agregar clase active al botón clickeado
+        button.classList.add("active");
+
+        // Actualizar clase del preview-frame
+        const previewFrame = this.shadowRoot.querySelector(".preview-frame");
+        previewFrame.className = "preview-frame " + button.dataset.device;
+      });
+    });
   }
 
+  generatePreviewHTML(data) {
+    if (!data || !data.rows) return "";
+
+    return data.rows
+      .map((row) => {
+        const columns = row.columns
+          .map((column) => {
+            const elements = column.elements
+              .map((element) => {
+                const styleString = Object.entries(element.styles || {})
+                  .map(([key, value]) => {
+                    const cssKey = key.replace(/([A-Z])/g, "-$1").toLowerCase();
+                    return `${cssKey}: ${value}`;
+                  })
+                  .join("; ");
+
+                switch (element.type) {
+                  case "text":
+                    return `<div style="${styleString}">${
+                      element.content || ""
+                    }</div>`;
+                  case "heading":
+                    const tag = element.tag || "h2";
+                    return `<${tag} style="${styleString}">${
+                      element.content || ""
+                    }</${tag}>`;
+                  case "image":
+                    const imgAttrs = Object.entries(element.attributes || {})
+                      .map(([key, value]) => `${key}="${value}"`)
+                      .join(" ");
+                    return `<img ${imgAttrs} style="${styleString}">`;
+                  case "button":
+                    const href = element.attributes?.href
+                      ? `onclick="window.open('${element.attributes.href}', '_blank')"`
+                      : "";
+                    return `<button ${href} style="${styleString}">${
+                      element.content || ""
+                    }</button>`;
+                  case "divider":
+                    return `<hr style="${styleString}">`;
+                  case "html":
+                    return element.content || "";
+                  case "video":
+                    const videoAttrs = Object.entries(element.attributes || {})
+                      .map(([key, value]) => `${key}="${value}"`)
+                      .join(" ");
+                    return `<div class="video-container" style="${styleString}">
+                <iframe ${videoAttrs}></iframe>
+              </div>`;
+                  case "spacer":
+                    return `<div style="${styleString}"></div>`;
+                  case "list":
+                    const items = element.content
+                      .split("\n")
+                      .map((item) => `<li>${item.trim()}</li>`)
+                      .join("");
+                    return `<${element.tag} style="${styleString}">${items}</${element.tag}>`;
+                  case "table":
+                    return `<div class="table-container" style="overflow-x: auto;">
+                <table style="${styleString}">${element.content}</table>
+              </div>`;
+                  default:
+                    return `<div style="${styleString}">${
+                      element.content || ""
+                    }</div>`;
+                }
+              })
+              .join("\n");
+
+            return `<div class="column" style="flex: 1; padding: 10px;">${elements}</div>`;
+          })
+          .join("\n");
+
+        return `<div class="row" style="display: flex; margin: 0 auto; max-width: 1200px;">${columns}</div>`;
+      })
+      .join("\n");
+  }
+
+  // Actualizar el método updateViews para incluir la vista previa
   updateViews() {
     if (!this.editorData) return;
 
     const htmlContent = this.shadowRoot.querySelector(".html-content");
     const jsonContent = this.shadowRoot.querySelector(".json-content");
+    const previewContent = this.shadowRoot.querySelector(".preview-content");
 
     if (htmlContent) {
       htmlContent.textContent = this.generateHTML();
@@ -442,6 +614,10 @@ class CanvasViewSwitcher extends HTMLElement {
 
     if (jsonContent) {
       jsonContent.textContent = JSON.stringify(this.editorData || {}, null, 2);
+    }
+
+    if (previewContent) {
+      previewContent.innerHTML = this.generatePreviewHTML(this.editorData);
     }
   }
 
