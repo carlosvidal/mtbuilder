@@ -1,3 +1,4 @@
+// En history.js
 export class History {
   constructor() {
     this.states = [];
@@ -11,15 +12,22 @@ export class History {
     console.log("Push State - Before:", {
       statesLength: this.states.length,
       currentIndex: this.currentIndex,
+      state,
     });
 
     // Si estamos en el medio del historial, eliminar los estados futuros
     if (this.currentIndex < this.states.length - 1) {
-      console.log(
-        "Truncating future states from index:",
-        this.currentIndex + 1
-      );
       this.states = this.states.slice(0, this.currentIndex + 1);
+    }
+
+    // Verificar si el nuevo estado es diferente del último
+    const lastState = this.states[this.currentIndex];
+    if (
+      this.currentIndex >= 0 &&
+      JSON.stringify(lastState) === JSON.stringify(state)
+    ) {
+      console.log("State unchanged, skipping...");
+      return;
     }
 
     // Agregar el nuevo estado
@@ -52,6 +60,7 @@ export class History {
 
     console.log("Undo - After:", {
       newIndex: this.currentIndex,
+      state: previousState,
       canUndo: this.canUndo(),
       canRedo: this.canRedo(),
     });
@@ -70,9 +79,9 @@ export class History {
 
     console.log("Redo - After:", {
       newIndex: this.currentIndex,
+      state: nextState,
       canUndo: this.canUndo(),
       canRedo: this.canRedo(),
-      stateReturned: nextState ? "yes" : "no",
     });
 
     this.emitHistoryChange();

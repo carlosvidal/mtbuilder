@@ -12,6 +12,15 @@ class BuilderCanvas extends HTMLElement {
     this.pageId = null;
     this._isUndoRedoOperation = false;
     this.history = new History();
+
+    // Asegurarnos de que tenemos builderEvents
+    window.builderEvents = window.builderEvents || new EventTarget();
+
+    // Escuchar cambios en el historial
+    window.builderEvents.addEventListener("historyChange", (event) => {
+      const { canUndo, canRedo } = event.detail;
+      console.log("Builder Canvas - History change:", { canUndo, canRedo });
+    });
   }
 
   static get observedAttributes() {
@@ -35,6 +44,36 @@ class BuilderCanvas extends HTMLElement {
           this.rows
         );
         this.render();
+      }
+    }
+  }
+
+  // En builder-canvas.js, añadir estos métodos:
+
+  handleUndo() {
+    console.log("Builder Canvas - Undo requested");
+    const previousState = this.history.undo();
+    if (previousState) {
+      this._isUndoRedoOperation = true;
+      try {
+        console.log("Applying undo state:", previousState);
+        this.setEditorData(previousState, true);
+      } finally {
+        this._isUndoRedoOperation = false;
+      }
+    }
+  }
+
+  handleRedo() {
+    console.log("Builder Canvas - Redo requested");
+    const nextState = this.history.redo();
+    if (nextState) {
+      this._isUndoRedoOperation = true;
+      try {
+        console.log("Applying redo state:", nextState);
+        this.setEditorData(nextState, true);
+      } finally {
+        this._isUndoRedoOperation = false;
       }
     }
   }
@@ -93,20 +132,27 @@ class BuilderCanvas extends HTMLElement {
     });
   }
 
-  // En builder-canvas.js
-  // Actualizar emitContentChanged para manejar suppressEvent consistentemente
+  // En builder-canvas.js, en el método emitContentChanged:
+
   emitContentChanged(suppressEvent = false) {
     const data = this.getEditorData();
-    console.log("Emitting content changed:", {
+    console.log("Builder Canvas - Emitting content changed:", {
       suppressEvent,
       isUndoRedo: this._isUndoRedoOperation,
+      data,
     });
 
+    // Guardar en CanvasStorage si tenemos pageId
     if (this.pageId) {
       CanvasStorage.saveCanvas(this.pageId, data);
     }
 
+    // Si no estamos suprimiendo eventos y no es una operación undo/redo
     if (!suppressEvent && !this._isUndoRedoOperation) {
+      // Actualizar historial
+      this.history.pushState(data);
+
+      // Emitir evento de cambio
       const event = new CustomEvent("contentChanged", {
         detail: data,
         bubbles: true,
@@ -119,19 +165,21 @@ class BuilderCanvas extends HTMLElement {
   setEditorData(data, suppressEvent = false) {
     if (!data || !data.rows) return;
 
-    // Hacer una copia profunda de los datos para evitar referencias
-    this.rows = JSON.parse(JSON.stringify(data.rows));
-    console.log("Setting editor data:", {
+    console.log("Builder Canvas - Setting editor data:", {
       data,
       suppressEvent,
       isUndoRedo: this._isUndoRedoOperation,
     });
 
+    // Hacer una copia profunda de los datos para evitar referencias
+    this.rows = JSON.parse(JSON.stringify(data.rows));
+
+    // Guardar en CanvasStorage
     if (this.pageId) {
       CanvasStorage.saveCanvas(this.pageId, this.getEditorData());
     }
 
-    // Llamar al render con el parámetro suppressEvent
+    // Renderizar con el parámetro suppressEvent
     this.render(suppressEvent);
   }
 

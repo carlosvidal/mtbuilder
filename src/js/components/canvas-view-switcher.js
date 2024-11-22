@@ -1,4 +1,5 @@
 import { History } from "./history.js";
+import { ExportUtils } from "./export-utils.js";
 
 class CanvasViewSwitcher extends HTMLElement {
   constructor() {
@@ -6,7 +7,7 @@ class CanvasViewSwitcher extends HTMLElement {
     this.attachShadow({ mode: "open" });
     this.currentView = "design";
     this.editorData = null;
-    this.canvas = null; // Mantener referencia al canvas
+    this.canvas = null;
     this.history = new History();
     this._isUndoRedoOperation = false;
     window.builderEvents = window.builderEvents || new EventTarget();
@@ -18,10 +19,12 @@ class CanvasViewSwitcher extends HTMLElement {
 
     // Almacenar referencia al listener
     this.contentChangedListener = (event) => {
-      this.editorData = event.detail;
+      const newContent = event.detail;
       if (!this._isUndoRedoOperation) {
-        this.history.pushState(this.editorData);
+        console.log("Pushing new state to history:", newContent);
+        this.history.pushState(newContent);
       }
+      this.editorData = newContent;
       this.updateViews();
     };
   }
@@ -67,7 +70,7 @@ class CanvasViewSwitcher extends HTMLElement {
   // En canvas-view-switcher.js
   handleHistoryChange(event) {
     const { canUndo, canRedo } = event.detail;
-    console.log("History change received:", { canUndo, canRedo });
+    console.log("History change:", { canUndo, canRedo });
 
     const undoButton = this.shadowRoot.querySelector(".undo-button");
     const redoButton = this.shadowRoot.querySelector(".redo-button");
@@ -84,38 +87,33 @@ class CanvasViewSwitcher extends HTMLElement {
   }
 
   handleUndo() {
+    console.log("Undo requested");
     const previousState = this.history.undo();
     if (previousState && this.canvas) {
       this._isUndoRedoOperation = true;
-      this.canvas._isUndoRedoOperation = true; // Importante: también actualizar el estado en el canvas
-
       try {
+        console.log("Applying undo state:", previousState);
         this.editorData = previousState;
-        this.canvas.setEditorData(previousState, true); // Pasar suppressEvent como true
+        this.canvas.setEditorData(previousState, true);
         this.updateViews();
       } finally {
         this._isUndoRedoOperation = false;
-        this.canvas._isUndoRedoOperation = false;
       }
     }
   }
 
   handleRedo() {
-    console.log("Redo button clicked");
+    console.log("Redo requested");
     const nextState = this.history.redo();
-    console.log("Next state:", nextState);
-
     if (nextState && this.canvas) {
       this._isUndoRedoOperation = true;
-      this.canvas._isUndoRedoOperation = true; // Importante: también actualizar el estado en el canvas
-
       try {
+        console.log("Applying redo state:", nextState);
         this.editorData = nextState;
-        this.canvas.setEditorData(nextState, true); // Pasar suppressEvent como true
+        this.canvas.setEditorData(nextState, true);
         this.updateViews();
       } finally {
         this._isUndoRedoOperation = false;
-        this.canvas._isUndoRedoOperation = false;
       }
     }
   }
@@ -201,8 +199,9 @@ class CanvasViewSwitcher extends HTMLElement {
             line-height: 1.5;
             height: 100%;
             box-sizing: border-box;
+            position: relative;
           }
-  
+            
           .design-view {
             height: 100%;
           }
@@ -213,9 +212,7 @@ class CanvasViewSwitcher extends HTMLElement {
           }
   
           .copy-button {
-            position: absolute;
-            top: 1rem;
-            right: 1rem;
+            position: relative; /* Cambiar de absolute a relative */
             padding: 0.5rem 1rem;
             background: #2196F3;
             color: white;
@@ -223,6 +220,9 @@ class CanvasViewSwitcher extends HTMLElement {
             border-radius: 4px;
             cursor: pointer;
             font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
           }
   
           .copy-button:hover {
@@ -243,21 +243,39 @@ class CanvasViewSwitcher extends HTMLElement {
           }
 
           .view-actions {
+            position: sticky;
+            top: 1rem;
+            right: 1rem;
             display: flex;
             gap: 0.5rem;
-            padding: 0 1rem;
+            margin-bottom: 1rem;
+            justify-content: flex-end;
           }
 
            .undo-button,
     .redo-button {
       opacity: 0.5;
       cursor: not-allowed;
+      padding: 0.5rem 1rem;
+      background: none;
+      border: none;
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      color: #666;
+      transition: all 0.2s ease;
     }
 
     .undo-button.active,
     .redo-button.active {
       opacity: 1;
       cursor: pointer;
+      color: #2196F3;
+    }
+
+    .undo-button.active:hover,
+    .redo-button.active:hover {
+      background: rgba(33, 150, 243, 0.1);
     }
 
           .undo-button,
@@ -367,6 +385,28 @@ class CanvasViewSwitcher extends HTMLElement {
         opacity: 1;
         color: #2196F3;
       }
+
+      .copy-button,
+      .download-button {
+        height: 36px;
+        padding: 0 1rem;
+        background: #2196F3;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        transition: background-color 0.2s ease;
+      }
+
+      .copy-button:hover,
+      .download-button:hover {
+        background: #1976D2;
+      }
         </style>
   
        <div class="view-container">
@@ -412,7 +452,12 @@ class CanvasViewSwitcher extends HTMLElement {
         </div>
 
         <div class="view html-view code-view">
-          <button class="copy-button" data-type="html">Copy HTML</button>
+          <div class="view-actions">
+            <button class="copy-button" data-type="html">Copy HTML</button>
+            <button class="download-button" data-type="html">
+              <span class="button-icon">↓</span><span>Download HTML</span>
+            </button>
+          </div>
           <pre class="html-content"></pre>
         </div>
 
@@ -471,17 +516,50 @@ class CanvasViewSwitcher extends HTMLElement {
 
     if (undoButton) {
       undoButton.addEventListener("click", () => {
-        console.log("Undo button clicked");
-        this.handleUndo();
+        console.log("View Switcher - Undo clicked");
+        if (this.canvas && typeof this.canvas.handleUndo === "function") {
+          this.canvas._isUndoRedoOperation = true;
+          try {
+            this.canvas.handleUndo();
+          } finally {
+            this.canvas._isUndoRedoOperation = false;
+          }
+        } else {
+          console.warn("Canvas or handleUndo not available");
+        }
       });
     }
 
     if (redoButton) {
       redoButton.addEventListener("click", () => {
-        console.log("Redo button clicked");
-        this.handleRedo();
+        console.log("View Switcher - Redo clicked");
+        if (this.canvas && typeof this.canvas.handleRedo === "function") {
+          this.canvas._isUndoRedoOperation = true;
+          try {
+            this.canvas.handleRedo();
+          } finally {
+            this.canvas._isUndoRedoOperation = false;
+          }
+        } else {
+          console.warn("Canvas or handleRedo not available");
+        }
       });
     }
+
+    window.builderEvents.addEventListener("historyChange", (event) => {
+      const { canUndo, canRedo } = event.detail;
+      console.log("View Switcher - History change:", { canUndo, canRedo });
+
+      if (undoButton) {
+        undoButton.disabled = !canUndo;
+        undoButton.classList.toggle("active", canUndo);
+      }
+
+      if (redoButton) {
+        redoButton.disabled = !canRedo;
+        redoButton.classList.toggle("active", canRedo);
+      }
+    });
 
     // Escuchar cambios en el canvas
     if (this.canvas) {
@@ -520,6 +598,16 @@ class CanvasViewSwitcher extends HTMLElement {
         previewFrame.className = "preview-frame " + button.dataset.device;
       });
     });
+
+    const downloadButton = this.shadowRoot.querySelector(".download-button");
+    if (downloadButton) {
+      downloadButton.addEventListener("click", () => {
+        if (this.editorData) {
+          const html = ExportUtils.generateExportableHTML(this.editorData);
+          ExportUtils.downloadHTML(html);
+        }
+      });
+    }
   }
 
   generatePreviewHTML(data) {
@@ -622,6 +710,10 @@ class CanvasViewSwitcher extends HTMLElement {
   }
 
   generateHTML() {
+    if (!this.editorData) {
+      return "<!-- No content -->";
+    }
+
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -673,6 +765,8 @@ class CanvasViewSwitcher extends HTMLElement {
     }
 </body>
 </html>`;
+
+    return ExportUtils.generateExportableHTML(this.editorData);
   }
 
   // En canvas-view-switcher.js

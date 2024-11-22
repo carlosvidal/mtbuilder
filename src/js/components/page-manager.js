@@ -1,83 +1,110 @@
 // page-manager.js
-import { CanvasStorage } from "./canvas-storage.js";
+import { PageBuilderDataProvider } from "./page-builder-data-provider.js";
+import { PageBuilderEventHandler } from "./page-builder-events.js";
 
 export class PageManager extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
+    this.pages = []; // Inicializar el array de páginas
     this.currentPageId = null;
+    this.setupDataProvider();
+    this.eventHandler = new PageBuilderEventHandler(this);
+  }
+
+  setupDataProvider() {
+    const endpoint = this.getAttribute("api-endpoint");
+    const apiKey = this.getAttribute("api-key");
+    // Si no hay endpoint, forzar modo local
+    const mode = endpoint ? this.getAttribute("mode") || "hybrid" : "local";
+
+    this.dataProvider = new PageBuilderDataProvider({
+      endpoint,
+      apiKey,
+      mode,
+    });
   }
 
   connectedCallback() {
-    this.loadPages();
+    // Primero renderizar estado inicial
     this.render();
+    // Luego cargar las páginas
+    this.loadPages();
   }
 
-  loadPages() {
+  async loadPages() {
     try {
-      const pagesData = localStorage.getItem("pageBuilderPages");
-      console.log("Loaded pages data:", pagesData);
-      this.pages = pagesData ? JSON.parse(pagesData) : [];
-      console.log("Parsed pages:", this.pages);
+      this.dispatchEvent(new CustomEvent("syncStarted"));
+      const pages = await this.dataProvider.getPages();
+
+      if (Array.isArray(pages)) {
+        this.pages = pages;
+        this.render();
+        this.dispatchEvent(
+          new CustomEvent("syncCompleted", { detail: { pages } })
+        );
+      } else {
+        throw new Error("Invalid pages data received");
+      }
     } catch (error) {
       console.error("Error loading pages:", error);
-      this.pages = [];
+      this.dispatchEvent(new CustomEvent("syncError", { detail: { error } }));
     }
   }
 
-  savePage(pageData) {
-    const existingPageIndex = this.pages.findIndex((p) => p.id === pageData.id);
-
-    const page = {
-      id: pageData.id || `page-${Date.now()}`,
-      name:
-        pageData.name ||
-        (existingPageIndex >= 0
-          ? this.pages[existingPageIndex].name
-          : `Página sin título ${this.pages.length + 1}`),
-      lastModified: new Date().toISOString(),
-      data: pageData.data || { rows: [] },
-    };
-
-    if (existingPageIndex >= 0) {
-      this.pages[existingPageIndex] = page;
-    } else {
-      this.pages.push(page);
+  async savePage(pageData) {
+    try {
+      const savedPage = await this.dataProvider.savePage(pageData);
+      await this.loadPages(); // Recargar la lista
+      return savedPage;
+    } catch (error) {
+      console.error("Error saving page:", error);
+      this.dispatchEvent(new CustomEvent("saveError", { detail: { error } }));
     }
-
-    localStorage.setItem("pageBuilderPages", JSON.stringify(this.pages));
-    CanvasStorage.saveCanvas(page.id, page.data);
-    console.log("Saved page:", page);
   }
 
-  deletePage(pageId) {
-    this.pages = this.pages.filter((p) => p.id !== pageId);
-    localStorage.setItem("pageBuilderPages", JSON.stringify(this.pages));
-    CanvasStorage.clearCanvas(pageId);
-    this.render();
+  async deletePage(pageId) {
+    try {
+      await this.dataProvider.deletePage(pageId);
+      await this.loadPages(); // Recargar la lista
+      this.dispatchEvent(
+        new CustomEvent("pageDeleted", { detail: { pageId } })
+      );
+    } catch (error) {
+      console.error("Error deleting page:", error);
+      this.dispatchEvent(new CustomEvent("deleteError", { detail: { error } }));
+    }
   }
 
-  loadBuilder(pageId) {
-    console.log("Loading builder for page:", pageId);
-    this.currentPageId = pageId;
-    const pageData = this.pages.find((p) => p.id === pageId);
-    console.log("Page data:", pageData);
-
-    if (pageData?.data) {
-      // Cambiar al modo edición
+  async loadBuilder(pageId) {
+    try {
+      console.log("Loading builder for page:", pageId);
       this.currentPageId = pageId;
-      // Eliminar esta línea: this.render();
+      const pageData = this.pages.find((p) => p.id === pageId);
+      console.log("Page data:", pageData);
 
-      // Esperar a que el DOM se actualice antes de establecer el pageId en el canvas
-      requestAnimationFrame(() => {
-        const builder = this.shadowRoot.querySelector("page-builder");
-        if (builder) {
-          const canvas = builder.shadowRoot.querySelector("builder-canvas");
-          if (canvas) {
-            canvas.setPageId(pageId);
+      if (pageData) {
+        requestAnimationFrame(() => {
+          const builder = this.shadowRoot.querySelector("page-builder");
+          if (builder) {
+            const canvas = builder.shadowRoot.querySelector("builder-canvas");
+            if (canvas) {
+              canvas.setPageId(pageId);
+              // Si tenemos contenido, establecerlo
+              if (pageData.content || pageData.data) {
+                canvas.setEditorData(pageData.content || pageData.data);
+              }
+            }
           }
-        }
-      });
+        });
+      }
+    } catch (error) {
+      console.error("Error loading builder:", error);
+      this.dispatchEvent(
+        new CustomEvent("loadError", {
+          detail: { error },
+        })
+      );
     }
   }
   render() {
@@ -251,47 +278,77 @@ export class PageManager extends HTMLElement {
         }
       `;
 
-      // Event Listeners
       const newPageButton = this.shadowRoot.getElementById("newPage");
-      newPageButton.addEventListener("click", () => {
-        const pageId = `page-${Date.now()}`;
-        CanvasStorage.clearCanvas(pageId);
+      if (newPageButton) {
+        newPageButton.addEventListener("click", async () => {
+          try {
+            const pageId = `page-${Date.now()}`;
+            const newPage = {
+              id: pageId,
+              name: `Nueva Página ${this.pages.length + 1}`,
+              content: { rows: [] }, // Usar content en lugar de data
+              lastModified: new Date().toISOString(),
+            };
 
-        this.savePage({
-          id: pageId,
-          name: `Nueva Página ${this.pages.length + 1}`,
-          data: { rows: [] },
+            await this.dataProvider.savePage(newPage);
+            this.currentPageId = pageId;
+            await this.loadPages(); // Recargar la lista
+            this.render();
+
+            this.dispatchEvent(
+              new CustomEvent("pageSaved", {
+                detail: { page: newPage },
+              })
+            );
+          } catch (error) {
+            console.error("Error creating new page:", error);
+            this.dispatchEvent(
+              new CustomEvent("saveError", {
+                detail: { error },
+              })
+            );
+          }
         });
-
-        this.currentPageId = pageId;
-        this.render();
-      });
+      }
 
       this.shadowRoot
         .querySelectorAll(".page-action-button")
         .forEach((button) => {
-          button.addEventListener("click", () => {
+          button.addEventListener("click", async () => {
+            // Añadir async aquí
             const action = button.dataset.action;
             const pageId = button.dataset.pageId;
-
-            // En el manejador del botón edit, reemplazar el bloque setTimeout por esto:
 
             if (action === "edit") {
               const pageData = this.pages.find((p) => p.id === pageId);
               console.log("Editing page:", pageId, pageData);
 
-              if (pageData?.data) {
-                // Cambiar al modo edición y cargar datos usando el método probado
+              if (pageData?.data || pageData?.content) {
+                // Verificar ambos content y data
                 this.currentPageId = pageId;
                 this.render();
-                this.loadBuilder(pageId); // Usar el método que ya funcionaba
+                this.loadBuilder(pageId);
               }
             } else if (action === "delete") {
               if (
                 confirm("¿Estás seguro de que deseas eliminar esta página?")
               ) {
-                CanvasStorage.clearCanvas(pageId);
-                this.deletePage(pageId);
+                try {
+                  await this.dataProvider.deletePage(pageId);
+                  await this.loadPages();
+                  this.dispatchEvent(
+                    new CustomEvent("pageDeleted", {
+                      detail: { pageId },
+                    })
+                  );
+                } catch (error) {
+                  console.error("Error deleting page:", error);
+                  this.dispatchEvent(
+                    new CustomEvent("deleteError", {
+                      detail: { error },
+                    })
+                  );
+                }
               }
             }
           });
