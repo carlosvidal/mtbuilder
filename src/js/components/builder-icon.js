@@ -37,105 +37,219 @@ class BuilderIcon extends HTMLElement {
       // Iconos de layout
       "row-1": {
         viewBox: "0 0 24 24",
-        path: "M3 3h18v18H3z",
+        elements: [
+          { type: "rect", width: "18", height: "18", x: "3", y: "3", rx: "2" },
+        ],
       },
       "row-2": {
         viewBox: "0 0 24 24",
-        path: "M3 3h8v18H3zM13 3h8v18h-8z",
+        elements: [
+          { type: "rect", width: "18", height: "18", x: "3", y: "3", rx: "2" },
+          { type: "line", x1: "12", y1: "3", x2: "12", y2: "21" },
+        ],
       },
       "row-3": {
         viewBox: "0 0 24 24",
-        path: "M3 3h5v18H3zM9.5 3h5v18h-5zM16 3h5v18h-5z",
+        elements: [
+          { type: "rect", width: "18", height: "18", x: "3", y: "3", rx: "2" },
+          { type: "line", x1: "9", y1: "3", x2: "9", y2: "21" },
+          { type: "line", x1: "15", y1: "3", x2: "15", y2: "21" },
+        ],
       },
+
       "row-4": {
         viewBox: "0 0 24 24",
-        path: "M3 3h3.5v18H3zM8 3h3.5v18H8zM13 3h3.5v18H13zM18 3h3v18h-3z",
+        elements: [
+          { type: "rect", width: "18", height: "18", x: "3", y: "3", rx: "2" },
+          { type: "line", x1: "7.5", y1: "3", x2: "7.5", y2: "21" },
+          { type: "line", x1: "12", y1: "3", x2: "12", y2: "21" },
+          { type: "line", x1: "16.5", y1: "3", x2: "16.5", y2: "21" },
+        ],
       },
+
       // Iconos de elementos
       heading: {
         viewBox: "0 0 24 24",
-        path: "M6 4v6h8V4h2v14h-2v-6H6v6H4V4z",
+        elements: [
+          { type: "path", d: "M4 12h8" },
+          { type: "path", d: "M4 18V6" },
+          { type: "path", d: "M12 18V6" },
+          { type: "path", d: "m17 12 3-2v8" },
+        ],
       },
       text: {
         viewBox: "0 0 24 24",
-        path: "M13 6v15h-2V6H5V4h14v2z",
+        elements: [
+          { type: "polyline", points: "4 7 4 4 20 4 20 7" },
+          { type: "line", x1: "9", y1: "20", x2: "15", y2: "20" },
+          { type: "line", x1: "12", y1: "4", x2: "12", y2: "20" },
+        ],
       },
       image: {
         viewBox: "0 0 24 24",
-        path: "M21 3H3C2 3 1 4 1 5v14c0 1.1.9 2 2 2h18c1 0 2-1 2-2V5c0-1-1-2-2-2zM5 17l4-4 2 2 6-6 3 3v5H5z",
-      },
-      button: {
-        viewBox: "0 0 24 24",
-        path: "M19 6H5c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm0 10H5V8h14v8z",
-      },
-      table: {
-        viewBox: "0 0 24 24",
-        path: "M3 3v18h18V3H3zm6 4h4v4H9V7zm0 6h4v4H9v-4zm-6-6h4v4H3V7zm0 6h4v4H3v-4zm12 4v-4h4v4h-4zm0-6V7h4v4h-4z",
+        elements: [
+          { type: "rect", width: "18", height: "18", x: "3", y: "3", rx: "2" },
+          { type: "circle", cx: "9", cy: "9", r: "2" },
+          { type: "path", d: "m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" },
+        ],
       },
       list: {
         viewBox: "0 0 24 24",
-        path: "M3 12h.01 M3 18h.01 M3 6h.01 M8 12h13 M8 18h13 M8 6h13",
+        elements: [
+          { type: "line", x1: "8", y1: "6", x2: "21", y2: "6" },
+          { type: "line", x1: "8", y1: "12", x2: "21", y2: "12" },
+          { type: "line", x1: "8", y1: "18", x2: "21", y2: "18" },
+          { type: "line", x1: "3", y1: "6", x2: "3.01", y2: "6" },
+          { type: "line", x1: "3", y1: "12", x2: "3.01", y2: "12" },
+          { type: "line", x1: "3", y1: "18", x2: "3.01", y2: "18" },
+        ],
       },
       video: {
         viewBox: "0 0 24 24",
-        path: "M8 5v14l11-7z",
+        elements: [
+          { type: "rect", width: "18", height: "18", x: "3", y: "3", rx: "2" },
+          { type: "path", d: "m10 8 6 4-6 4Z" },
+        ],
       },
       divider: {
         viewBox: "0 0 24 24",
-        path: "M3 12h18",
+        elements: [{ type: "line", x1: "3", y1: "12", x2: "21", y2: "12" }],
       },
       spacer: {
         viewBox: "0 0 24 24",
-        path: "M12 20V4M4 12h16",
+        elements: [
+          { type: "line", x1: "12", y1: "20", x2: "12", y2: "4" },
+          { type: "line", x1: "4", y1: "12", x2: "20", y2: "12" },
+        ],
       },
-      html: {
-        viewBox: "0 0 24 24",
-        path: "M16 18L22 12L16 6M8 6L2 12L8 18",
-      },
+
       // Iconos de control
-      home: {
-        viewBox: "0 0 24 24",
-        path: "M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22V12h6v10",
-      },
       back: {
         viewBox: "0 0 24 24",
-        path: "M15 18l-6-6l6-6",
+        elements: [{ type: "polyline", points: "15 18 9 12 15 6" }],
       },
       close: {
         viewBox: "0 0 24 24",
-        path: "M18 6L6 18M6 6l12 12",
+        elements: [
+          { type: "line", x1: "18", y1: "6", x2: "6", y2: "18" },
+          { type: "line", x1: "6", y1: "6", x2: "18", y2: "18" },
+        ],
       },
       move: {
         viewBox: "0 0 24 24",
-        path: "M5 9l-3 3l3 3M9 5l3-3l3 3M15 19l-3 3l-3-3M19 9l3 3l-3 3M2 12h20M12 2v20",
+        elements: [
+          { type: "polyline", points: "5 9 2 12 5 15" },
+          { type: "polyline", points: "9 5 12 2 15 5" },
+          { type: "polyline", points: "15 19 12 22 9 19" },
+          { type: "polyline", points: "19 9 22 12 19 15" },
+          { type: "line", x1: "2", y1: "12", x2: "22", y2: "12" },
+          { type: "line", x1: "12", y1: "2", x2: "12", y2: "22" },
+        ],
       },
       edit: {
         viewBox: "0 0 24 24",
-        path: "M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5L2 22l1.5-5.5L17 3z",
+        elements: [
+          {
+            type: "path",
+            d: "M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z",
+          },
+        ],
       },
       delete: {
         viewBox: "0 0 24 24",
-        path: "M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2",
+        elements: [
+          { type: "path", d: "M3 6h18" },
+          { type: "path", d: "M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" },
+          { type: "path", d: "M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" },
+        ],
       },
       undo: {
         viewBox: "0 0 24 24",
-        path: "M3 7v6h6 M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13",
+        elements: [
+          { type: "path", d: "M3 7v6h6" },
+          { type: "path", d: "M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" },
+        ],
       },
       redo: {
         viewBox: "0 0 24 24",
-        path: "M21 7v6h-6 M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7",
+        elements: [
+          { type: "path", d: "M21 7v6h-6" },
+          { type: "path", d: "M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13" },
+        ],
       },
       desktop: {
         viewBox: "0 0 24 24",
-        path: "M20 3H4c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM4 16V5h16v11H4z",
+        elements: [
+          { type: "rect", width: "20", height: "14", x: "2", y: "3", rx: "2" },
+          { type: "line", x1: "8", y1: "21", x2: "16", y2: "21" },
+          { type: "line", x1: "12", y1: "17", x2: "12", y2: "21" },
+        ],
       },
       tablet: {
         viewBox: "0 0 24 24",
-        path: "M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-6 18c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z",
+        elements: [
+          { type: "rect", width: "16", height: "20", x: "4", y: "2", rx: "2" },
+          { type: "line", x1: "12", y1: "18", x2: "12.01", y2: "18" },
+        ],
       },
       mobile: {
         viewBox: "0 0 24 24",
-        path: "M15 2H9c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h6c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-3 18c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z",
+        elements: [
+          { type: "rect", width: "14", height: "20", x: "5", y: "2", rx: "2" },
+          { type: "path", d: "M12 18h.01" },
+        ],
+      },
+      button: {
+        viewBox: "0 0 24 24",
+        elements: [
+          { type: "path", d: "M9 17H7A5 5 0 0 1 7 7h2" },
+          { type: "path", d: "M15 7h2a5 5 0 1 1 0 10h-2" },
+          { type: "line", x1: "8", x2: "16", y1: "12", y2: "12" },
+        ],
+      },
+
+      // Actualizar el icono de tabla para usar rect y paths
+      table: {
+        viewBox: "0 0 24 24",
+        elements: [
+          { type: "rect", width: "18", height: "18", x: "3", y: "3", rx: "2" },
+          { type: "path", d: "M12 3v18" },
+          { type: "path", d: "M3 9h18" },
+          { type: "path", d: "M3 15h18" },
+        ],
+      },
+
+      // Mantener los demás iconos pero convertirlos al nuevo formato
+      home: {
+        viewBox: "0 0 24 24",
+        elements: [
+          { type: "path", d: "M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" },
+          { type: "path", d: "M9 22V12h6v10" },
+        ],
+      },
+      html: {
+        viewBox: "0 0 24 24",
+        elements: [
+          { type: "polyline", points: "16 18 22 12 16 6" },
+          { type: "polyline", points: "8 6 2 12 8 18" },
+        ],
+      },
+      css: {
+        viewBox: "0 0 24 24",
+        elements: [
+          { type: "path", d: "M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" },
+          { type: "path", d: "M9 22V12h6v10" },
+        ],
+      },
+      javascript: {
+        viewBox: "0 0 24 24",
+        elements: [
+          { type: "path", d: "M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" },
+          { type: "path", d: "M9 22V12h6v10" },
+          { type: "path", d: "M13 17v4" },
+          { type: "path", d: "M17 17v4" },
+          { type: "path", d: "M21 17v4" },
+        ],
       },
     };
 
@@ -144,28 +258,47 @@ class BuilderIcon extends HTMLElement {
 
     this.shadowRoot.innerHTML = `
         <style>
-          :host {
-            display: inline-flex;
-            width: ${this.size}px;
-            height: ${this.size}px;
-          }
-          svg {
-            width: 100%;
-            height: 100%;
-            stroke: ${this.color};
-            stroke-width: 2;
-            stroke-linecap: round;
-            stroke-linejoin: round;
-            fill: none;
-          }
-        </style>
-        <svg 
-          xmlns="http://www.w3.org/2000/svg" 
-          viewBox="${icon.viewBox}"
-          aria-hidden="true"
-        >
-          <path d="${icon.path}"></path>
-        </svg>
+        :host {
+          display: inline-flex;
+          width: ${this.size}px;
+          height: ${this.size}px;
+        }
+        svg {
+          width: 100%;
+          height: 100%;
+          stroke: ${this.color};
+          stroke-width: 2;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+          fill: none;
+        }
+      </style>
+      <svg 
+        xmlns="http://www.w3.org/2000/svg" 
+        viewBox="${icon.viewBox}"
+        aria-hidden="true"
+      >
+        ${icon.elements
+          .map((elem) => {
+            switch (elem.type) {
+              case "path":
+                return `<path d="${elem.d}" />`;
+              case "line":
+                return `<line x1="${elem.x1}" y1="${elem.y1}" x2="${elem.x2}" y2="${elem.y2}" />`;
+              case "rect":
+                return `<rect width="${elem.width}" height="${
+                  elem.height
+                }" x="${elem.x}" y="${elem.y}" rx="${elem.rx || 0}" />`;
+              case "circle":
+                return `<circle cx="${elem.cx}" cy="${elem.cy}" r="${elem.r}" />`;
+              case "polyline":
+                return `<polyline points="${elem.points}" />`;
+              default:
+                return "";
+            }
+          })
+          .join("")}
+      </svg>
       `;
   }
 }

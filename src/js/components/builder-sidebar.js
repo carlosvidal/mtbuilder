@@ -341,7 +341,7 @@ class BuilderSidebar extends HTMLElement {
           <div class="editor-container">
             <div class="editor-header">
               <button class="back-button" id="backButton">
-                <span>←</span>
+                <builder-icon name="back" size="24"></builder-icon>
                 <span>Back</span>
               </button>
               <h3 class="editor-title">Edit ${
@@ -478,6 +478,14 @@ class BuilderSidebar extends HTMLElement {
           grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
           gap: 1rem;
         }
+                    
+        @keyframes tilt-n-move-shaking {
+          0% { transform: translate(0, 0) rotate(0deg); }
+          25% { transform: translate(5px, 5px) rotate(5deg); }
+          50% { transform: translate(0, 0) rotate(0eg); }
+          75% { transform: translate(-5px, 5px) rotate(-5deg); }
+          100% { transform: translate(0, 0) rotate(0deg); }
+        }
   
         .builder-element {
           aspect-ratio: 1;
@@ -498,7 +506,10 @@ class BuilderSidebar extends HTMLElement {
           border-color: #2196F3;
           transform: translateY(-2px);
           box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+          animation: tilt-n-move-shaking 0.25s infinite;
         }
+
+
   
         .element-icon {
           font-size: 1.5rem;

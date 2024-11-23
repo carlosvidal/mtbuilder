@@ -141,7 +141,6 @@ class CanvasViewSwitcher extends HTMLElement {
           .view-tabs {
             display: flex;
             background: #f5f5f5;
-            border-bottom: 1px solid #ddd;
             text-align: center;
             font-size: 0.875rem;
             font-weight: normal;
@@ -154,6 +153,7 @@ class CanvasViewSwitcher extends HTMLElement {
             background: none;
             position: relative;
             color: #666;
+            font-size: 0.875rem;
           }
   
           .view-tab.active {
