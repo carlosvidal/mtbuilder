@@ -1,5 +1,5 @@
-import { History } from "./history.js";
-import { ExportUtils } from "./export-utils.js";
+import { History } from "../utils/history.js";
+import { ExportUtils } from "../utils/export-utils.js";
 
 class CanvasViewSwitcher extends HTMLElement {
   constructor() {
@@ -243,13 +243,11 @@ class CanvasViewSwitcher extends HTMLElement {
           }
 
           .view-actions {
-            position: sticky;
-            top: 1rem;
-            right: 1rem;
             display: flex;
             gap: 0.5rem;
             margin-bottom: 1rem;
             justify-content: flex-end;
+            align-items: center;
           }
 
            .undo-button,

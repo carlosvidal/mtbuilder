@@ -137,6 +137,11 @@ class BuilderSidebar extends HTMLElement {
       tab.addEventListener("click", () => {
         this.currentTab = tab.dataset.tab;
         this.render();
+
+        // Si el tab actual es "principal", configurar sus listeners
+        if (this.currentTab === "principal") {
+          this.setupPrincipalTabListeners();
+        }
       });
     });
   }
@@ -193,26 +198,113 @@ class BuilderSidebar extends HTMLElement {
       <div class="tab-content">
         <div class="form-group">
           <label>Ancho máximo</label>
-          <input type="text" value="1200px" />
+          <div class="input-group">
+            <input 
+              type="number" 
+              id="maxWidthInput"
+              min="320" 
+              max="2400" 
+              step="10"
+              value="${
+                parseInt(this.getCanvasGlobalSettings().maxWidth) || 1200
+              }"
+            />
+            <span class="input-addon">px</span>
+          </div>
         </div>
+        
         <div class="form-group">
           <label>Padding</label>
-          <input type="text" value="20px" />
+          <div class="input-group">
+            <input 
+              type="number" 
+              id="paddingInput"
+              min="0" 
+              max="100" 
+              value="${parseInt(this.getCanvasGlobalSettings().padding) || 20}"
+            />
+            <span class="input-addon">px</span>
+          </div>
         </div>
+        
         <div class="form-group">
           <label>Color de fondo</label>
-          <input type="color" value="#ffffff" />
+          <input 
+            type="color" 
+            id="backgroundColorInput"
+            value="${
+              this.getCanvasGlobalSettings().backgroundColor || "#ffffff"
+            }"
+          />
         </div>
+        
         <div class="form-group">
           <label>Fuente principal</label>
-          <select>
-            <option>System UI</option>
-            <option>Arial</option>
-            <option>Helvetica</option>
+          <select id="fontFamilySelect">
+            <option value="system-ui, -apple-system, sans-serif" ${
+              this.getCanvasGlobalSettings().fontFamily.includes("system-ui")
+                ? "selected"
+                : ""
+            }>System UI</option>
+            <option value="Arial, sans-serif" ${
+              this.getCanvasGlobalSettings().fontFamily.includes("Arial")
+                ? "selected"
+                : ""
+            }>Arial</option>
+            <option value="Helvetica, sans-serif" ${
+              this.getCanvasGlobalSettings().fontFamily.includes("Helvetica")
+                ? "selected"
+                : ""
+            }>Helvetica</option>
+            <option value="Georgia, serif" ${
+              this.getCanvasGlobalSettings().fontFamily.includes("Georgia")
+                ? "selected"
+                : ""
+            }>Georgia</option>
           </select>
         </div>
       </div>
     `;
+  }
+
+  // Método para configurar los event listeners del tab principal
+  setupPrincipalTabListeners() {
+    const canvas = document.querySelector("builder-canvas");
+    if (!canvas) return;
+
+    // Ancho máximo
+    const maxWidthInput = this.shadowRoot.getElementById("maxWidthInput");
+    maxWidthInput?.addEventListener("change", (e) => {
+      canvas.updateGlobalSettings({
+        maxWidth: `${e.target.value}px`,
+      });
+    });
+
+    // Padding
+    const paddingInput = this.shadowRoot.getElementById("paddingInput");
+    paddingInput?.addEventListener("change", (e) => {
+      canvas.updateGlobalSettings({
+        padding: `${e.target.value}px`,
+      });
+    });
+
+    // Color de fondo
+    const backgroundColorInput = this.shadowRoot.getElementById(
+      "backgroundColorInput"
+    );
+    backgroundColorInput?.addEventListener("input", (e) => {
+      canvas.updateGlobalSettings({
+        backgroundColor: e.target.value,
+      });
+    });
+
+    // Fuente principal
+    const fontFamilySelect = this.shadowRoot.getElementById("fontFamilySelect");
+    fontFamilySelect?.addEventListener("change", (e) => {
+      canvas.updateGlobalSettings({
+        fontFamily: e.target.value,
+      });
+    });
   }
 
   renderRowsTab() {
@@ -308,6 +400,26 @@ class BuilderSidebar extends HTMLElement {
       this.setupTabListeners();
       this.setupDragAndDrop();
     }
+  }
+
+  getCanvasGlobalSettings() {
+    // Primero intentamos obtener el canvas que está en el mismo shadow tree
+    let canvas =
+      this.closest("page-builder")?.shadowRoot?.querySelector("builder-canvas");
+
+    // Si no lo encontramos, buscamos en el documento principal
+    if (!canvas) {
+      canvas = document.querySelector("builder-canvas");
+    }
+
+    return (
+      canvas?.globalSettings || {
+        maxWidth: "1200px",
+        padding: "20px",
+        backgroundColor: "#ffffff",
+        fontFamily: "system-ui, -apple-system, sans-serif",
+      }
+    );
   }
 
   getStyles() {
@@ -491,6 +603,72 @@ class BuilderSidebar extends HTMLElement {
           display: block;
           height: 100%;
         }
+
+        .input-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .input-group input[type="number"] {
+      flex: 1;
+      width: auto;
+    }
+
+    .input-addon {
+      color: #666;
+      font-size: 0.875rem;
+      padding: 0.5rem 0;
+    }
+
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      color: #333;
+      font-weight: 500;
+      font-size: 0.875rem;
+    }
+
+    input[type="color"] {
+      -webkit-appearance: none;
+      padding: 0;
+      width: 100%;
+      height: 40px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+
+    input[type="color"]::-webkit-color-swatch-wrapper {
+      padding: 4px;
+    }
+
+    input[type="color"]::-webkit-color-swatch {
+      border: none;
+      border-radius: 2px;
+    }
+
+    select {
+      width: 100%;
+      padding: 0.5rem;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 0.875rem;
+      color: #333;
+      background-color: white;
+    }
+
+    select:focus {
+      outline: none;
+      border-color: #2196F3;
+    }
+
+    .tab-content {
+      padding: 1.5rem;
+    }
       </style>
     `;
   }

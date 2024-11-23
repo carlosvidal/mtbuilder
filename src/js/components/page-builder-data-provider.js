@@ -1,5 +1,5 @@
 // page-builder-data-provider.js
-import { CanvasStorage } from "./canvas-storage.js";
+import { CanvasStorage } from "../utils/canvas-storage.js";
 
 class PageBuilderCache {
   constructor() {

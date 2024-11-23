@@ -1,11 +1,17 @@
-import { CanvasStorage } from "./canvas-storage.js";
-import { History } from "./history.js";
+import { CanvasStorage } from "../utils/canvas-storage.js";
+import { History } from "../utils/history.js";
 
 class BuilderCanvas extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
     this.rows = [];
+    this.globalSettings = {
+      maxWidth: "1200px",
+      padding: "20px",
+      backgroundColor: "#ffffff",
+      fontFamily: "system-ui, -apple-system, sans-serif",
+    };
     this.draggedRow = null;
     this.draggedElement = null;
     this.dropIndicator = null;
@@ -163,29 +169,30 @@ class BuilderCanvas extends HTMLElement {
   }
   // En builder-canvas.js, reemplazar el método getEditorData()// En builder-canvas.js, modificar el método setEditorData
   setEditorData(data, suppressEvent = false) {
-    if (!data || !data.rows) return;
+    if (!data) return;
 
-    console.log("Builder Canvas - Setting editor data:", {
-      data,
-      suppressEvent,
-      isUndoRedo: this._isUndoRedoOperation,
-    });
-
-    // Hacer una copia profunda de los datos para evitar referencias
-    this.rows = JSON.parse(JSON.stringify(data.rows));
-
-    // Guardar en CanvasStorage
-    if (this.pageId) {
-      CanvasStorage.saveCanvas(this.pageId, this.getEditorData());
+    if (data.globalSettings) {
+      this.globalSettings = { ...this.globalSettings, ...data.globalSettings };
     }
 
-    // Renderizar con el parámetro suppressEvent
+    if (data.rows) {
+      this.rows = JSON.parse(JSON.stringify(data.rows));
+    }
+
     this.render(suppressEvent);
   }
 
   // También debemos agregar el método getEditorData si no existe
+  updateGlobalSettings(settings) {
+    this.globalSettings = { ...this.globalSettings, ...settings };
+    this.render();
+    this.emitContentChanged();
+  }
+
+  // Método para obtener los datos del editor incluyendo configuraciones globales
   getEditorData() {
     return {
+      globalSettings: this.globalSettings,
       rows: this.rows.map((row) => ({
         id: row.id,
         type: row.type,
@@ -1160,12 +1167,22 @@ class BuilderCanvas extends HTMLElement {
           * {
             box-sizing: border-box;
           }
-  
+
           .canvas-container {
             height: 100%;
             min-height: 100%;
             padding: 2rem;
           }
+
+          .canvas-wrapper {
+          max-width: ${this.globalSettings.maxWidth};
+          padding: ${this.globalSettings.padding};
+          margin: 0 auto;
+          background-color: ${this.globalSettings.backgroundColor};
+          font-family: ${this.globalSettings.fontFamily};
+        }
+  
+          
   
           .canvas-dropzone {
             min-height: 100%;
@@ -1422,18 +1439,20 @@ class BuilderCanvas extends HTMLElement {
           Rows: ${this.rows.length}
         </div>
         
-        <div class="canvas-dropzone ${
-          this.rows.length === 0 ? "empty" : ""
-        }" data-page-id="${currentPageId || ""}">
-          ${
-            this.rows.length === 0
-              ? `<div class="empty-message">
-                  <h3>Comienza tu diseño</h3>
-                  <p>Arrastra filas desde el panel lateral para comenzar</p>
-                  <p><small>ID: ${currentPageId || "null"}</small></p>
-                </div>`
-              : this.rows.map((row) => this.renderRow(row)).join("")
-          }
+        <div class="canvas-wrapper">
+          <div class="canvas-dropzone ${
+            this.rows.length === 0 ? "empty" : ""
+          }" data-page-id="${currentPageId || ""}">
+            ${
+              this.rows.length === 0
+                ? `<div class="empty-message">
+                    <h3>Comienza tu diseño</h3>
+                    <p>Arrastra filas desde el panel lateral para comenzar</p>
+                    <p><small>ID: ${currentPageId || "null"}</small></p>
+                  </div>`
+                : this.rows.map((row) => this.renderRow(row)).join("")
+            }
+          </div>
         </div>
       </div>
     `;
