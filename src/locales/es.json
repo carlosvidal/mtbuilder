@@ -1,0 +1,93 @@
+{
+    "builder": {
+        "sidebar": {
+            "tabs": {
+                "elements": "Elementos",
+                "rows": "Filas",
+                "settings": "Ajustes"
+            },
+            "elements": {
+                "heading": "Encabezado",
+                "text": "Texto",
+                "image": "Imagen",
+                "button": "Botón",
+                "table": "Tabla",
+                "list": "Lista",
+                "video": "Video",
+                "divider": "Divisor",
+                "spacer": "Espacio",
+                "html": "HTML"
+            }
+        },
+        "canvas": {
+            "empty": {
+                "title": "Comienza tu diseño",
+                "subtitle": "Arrastra elementos desde el panel lateral"
+            },
+            "dropzone": {
+                "hint": "Arrastra elementos aquí"
+            }
+        },
+        "editor": {
+            "common": {
+                "styles": {
+                    "title": "Estilos",
+                    "color": "Color",
+                    "background": "Fondo",
+                    "border": "Borde",
+                    "spacing": "Espaciado"
+                }
+            },
+            "elements": {
+                "heading": {
+                    "title": "Editar encabezado",
+                    "level": "Nivel",
+                    "content": "Contenido"
+                },
+                "text": {
+                    "title": "Editar texto",
+                    "content": "Contenido"
+                },
+                "button": {
+                    "title": "Editar botón",
+                    "text": "Texto",
+                    "link": "Enlace",
+                    "type": "Tipo"
+                }
+            }
+        }
+    },
+    "pages": {
+        "list": {
+            "title": "Mis páginas",
+            "empty": "No hay páginas creadas",
+            "create": "Crear nueva página",
+            "actions": {
+                "edit": "Editar",
+                "delete": "Eliminar",
+                "duplicate": "Duplicar"
+            }
+        },
+        "count": {
+            "one": "{count} página",
+            "other": "{count} páginas"
+        }
+    },
+    "common": {
+        "save": "Guardar",
+        "cancel": "Cancelar",
+        "delete": "Eliminar",
+        "edit": "Editar",
+        "back": "Volver",
+        "loading": "Cargando...",
+        "confirmation": {
+            "delete": "¿Estás seguro de que deseas eliminar esto?"
+        },
+        "errors": {
+            "required": "Este campo es obligatorio",
+            "invalid": "Este valor no es válido",
+            "save": "Error al guardar",
+            "load": "Error al cargar"
+        }
+    }
+}

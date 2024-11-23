@@ -1,3 +1,4 @@
+import { BuilderIcon } from "./builder-icon.js";
 import { History } from "../utils/history.js";
 import { ExportUtils } from "../utils/export-utils.js";
 
@@ -245,24 +246,27 @@ class CanvasViewSwitcher extends HTMLElement {
           .view-actions {
             display: flex;
             gap: 0.5rem;
-            margin-bottom: 1rem;
             justify-content: flex-end;
             align-items: center;
           }
 
            .undo-button,
-    .redo-button {
-      opacity: 0.5;
-      cursor: not-allowed;
-      padding: 0.5rem 1rem;
-      background: none;
-      border: none;
-      display: flex;
-      align-items: center;
-      gap: 0.25rem;
-      color: #666;
-      transition: all 0.2s ease;
-    }
+.redo-button,
+.copy-button,
+.download-button,
+.device-button,
+.back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: #666;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
 
     .undo-button.active,
     .redo-button.active {
@@ -417,13 +421,13 @@ class CanvasViewSwitcher extends HTMLElement {
         </div>
         <div class="view-actions">
           <button class="undo-button" disabled>
-            <span class="button-icon">↶</span>
-            Deshacer
-          </button>
-          <button class="redo-button" disabled>
-            <span class="button-icon">↷</span>
-            Rehacer
-          </button>
+    <builder-icon name="undo" size="20"></builder-icon>
+    <span>Deshacer</span>
+  </button>
+  <button class="redo-button" disabled>
+    <builder-icon name="redo" size="20"></builder-icon>
+    <span>Rehacer</span>
+  </button>
         </div>
       </div>
 
@@ -453,7 +457,7 @@ class CanvasViewSwitcher extends HTMLElement {
           <div class="view-actions">
             <button class="copy-button" data-type="html">Copy HTML</button>
             <button class="download-button" data-type="html">
-              <span class="button-icon">↓</span><span>Download HTML</span>
+              <builder-icon name="download" size="20"></builder-icon><span>Download HTML</span>
             </button>
           </div>
           <pre class="html-content"></pre>

@@ -1,4 +1,5 @@
 // page-manager.js
+import { BuilderIcon } from "./builder-icon.js";
 import { PageBuilderDataProvider } from "./page-builder-data-provider.js";
 import { PageBuilderEventHandler } from "./page-builder-events.js";
 
@@ -125,13 +126,27 @@ export class PageManager extends HTMLElement {
             border-bottom: 1px solid #dee2e6;
           }
           .back-button {
-            padding: 0.5rem 1rem;
-            background: none;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            cursor: pointer;
-            margin-right: 1rem;
-          }
+          display: inline-flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.5rem 1rem;
+          background: none;
+          border: 0;
+          cursor: pointer;
+          color: #666;
+          transition: all 0.2s ease;
+          margin-right: 1rem;
+        }
+
+        .back-button:hover {
+          background: #f8f9fa;
+          color: #333;
+          border-color: #ced4da;
+        }
+
+        .back-button builder-icon {
+          color: currentColor;
+        }
           .page-title {
             margin: 0;
             font-size: 1.25rem;
@@ -142,7 +157,7 @@ export class PageManager extends HTMLElement {
           }
         </style>
         <div class="header">
-      <button class="back-button" id="backToList">← Volver</button>
+      <button class="back-button" id="backToList"><builder-icon name="home" size="20"></builder-icon></button>
       <h1 class="page-title">
         ${this.pages.find((p) => p.id === this.currentPageId)?.name || "Editor"}
         <small style="color: #666; font-size: 0.8em;">ID: ${
@@ -258,10 +273,10 @@ export class PageManager extends HTMLElement {
         <div class="page-actions">
           <button class="page-action-button" data-action="edit" data-page-id="${
             page.id
-          }">✏️</button>
+          }"><builder-icon name="edit" size="20"></builder-icon></button>
           <button class="page-action-button" data-action="delete" data-page-id="${
             page.id
-          }">🗑️</button>
+          }"><builder-icon name="delete" size="20"></builder-icon></button>
         </div>
       </div>
       <div class="page-meta">

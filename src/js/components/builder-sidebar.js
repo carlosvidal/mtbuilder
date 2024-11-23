@@ -1,3 +1,5 @@
+import { BuilderIcon } from "./builder-icon.js";
+
 class BuilderSidebar extends HTMLElement {
   constructor() {
     super();
@@ -9,85 +11,65 @@ class BuilderSidebar extends HTMLElement {
     this.rows = [
       {
         type: "row-1",
-        icon: "▭",
         label: "1 Columna",
         columns: 1,
       },
       {
         type: "row-2",
-        icon: "⫼",
         label: "2 Columnas",
         columns: 2,
       },
       {
         type: "row-3",
-        icon: "☰",
         label: "3 Columnas",
         columns: 3,
       },
       {
         type: "row-4",
-        icon: "❘❘❘❘",
         label: "4 Columnas",
         columns: 4,
-      },
-      {
-        type: "row-6",
-        icon: "❘❘❘❘❘❘",
-        label: "6 Columnas",
-        columns: 6,
       },
     ];
 
     this.elements = [
       {
         type: "heading",
-        icon: "H",
         label: "Encabezado",
       },
       {
         type: "text",
-        icon: "T",
         label: "Texto",
       },
       {
         type: "image",
-        icon: "🖼️",
         label: "Imagen",
       },
       {
         type: "button",
-        icon: "▭",
         label: "Botón",
       },
       {
         type: "table",
-        icon: "⊞",
         label: "Tabla",
       },
       {
         type: "list",
-        icon: "☰",
         label: "Lista",
       },
       {
         type: "video",
-        icon: "▶",
         label: "Video",
       },
       {
         type: "divider",
-        icon: "―",
         label: "Divisor",
       },
       {
         type: "spacer",
-        icon: "↕",
         label: "Espacio",
       },
       {
         type: "html",
-        icon: "</>",
         label: "HTML",
       },
     ];
@@ -315,7 +297,9 @@ class BuilderSidebar extends HTMLElement {
             .map(
               (row) => `
             <div class="builder-element" data-type="${row.type}">
-              <div class="element-icon">${row.icon}</div>
+              <div class="element-icon">
+                <builder-icon name="${row.type}" size="24"></builder-icon>
+              </div>
               <div class="element-label">${row.label}</div>
             </div>
           `
@@ -334,7 +318,9 @@ class BuilderSidebar extends HTMLElement {
             .map(
               (element) => `
             <div class="builder-element" data-type="${element.type}">
-              <div class="element-icon">${element.icon}</div>
+              <div class="element-icon">
+                <builder-icon name="${element.type}" size="24"></builder-icon>
+              </div>
               <div class="element-label">${element.label}</div>
             </div>
           `
