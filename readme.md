@@ -135,18 +135,40 @@ cd mtbuilder
 
 ## Project Structure
 ```
-src/
-├── js/
-|   ├── components/
-│       ├── page-builder.js
-│       ├── builder-canvas.js
-│       ├── builder-sidebar.js
-│       ├── element-editor.js
-│       ├── canvas-view-switcher.js
-│       ├── page-builder-data-provider.js   # Integration API
-│       └── page-builder-events.js          # Event handling
-├── styles/
-└── index.js
+.
+├── css
+├── js
+│   ├── components
+│   │   ├── editors
+│   │   │   ├── base-element-editor.js
+│   │   │   ├── button-editor.js
+│   │   │   ├── divider-editor.js
+│   │   │   ├── heading-editor.js
+│   │   │   ├── html-editor.js
+│   │   │   ├── image-editor.js
+│   │   │   ├── list-editor.js
+│   │   │   ├── spacer-editor.js
+│   │   │   ├── table-editor.js
+│   │   │   ├── text-editor.js
+│   │   │   └── video-editor.js
+│   │   ├── .DS_Store
+│   │   ├── builder-canvas.js
+│   │   ├── builder-sidebar.js
+│   │   ├── canvas-view-switcher.js
+│   │   ├── element-editor-factory.js
+│   │   ├── element-editor.js
+│   │   ├── page-builder-data-provider.js
+│   │   ├── page-builder-events.js
+│   │   ├── page-builder.js
+│   │   ├── page-manager.js
+│   │   └── register-editors.js
+│   ├── utils
+│   │   ├── canvas-storage.js
+│   │   ├── export-utils.js
+│   │   └── history.js
+│   ├── .DS_Store
+│   └── index.js
+└── index.html
 ```
 
 ## 🚀 Demo
