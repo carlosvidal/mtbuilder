@@ -1,7 +1,8 @@
 // page-manager.js
-import { BuilderIcon } from "./builder-icon.js";
+import { BuilderIcon } from "./builder-icon.js"; // Importar el componente BuilderIcon para mostrar los iconos
 import { PageBuilderDataProvider } from "./page-builder-data-provider.js";
 import { PageBuilderEventHandler } from "./page-builder-events.js";
+import { I18n } from "../utils/i18n.js";
 
 export class PageManager extends HTMLElement {
   constructor() {
@@ -9,6 +10,7 @@ export class PageManager extends HTMLElement {
     this.attachShadow({ mode: "open" });
     this.pages = []; // Inicializar el array de páginas
     this.currentPageId = null;
+    this.i18n = I18n.getInstance();
     this.setupDataProvider();
     this.eventHandler = new PageBuilderEventHandler(this);
   }
@@ -23,14 +25,36 @@ export class PageManager extends HTMLElement {
       endpoint,
       apiKey,
       mode,
+      getHeaders: () => ({
+        "Accept-Language": this.i18n.currentLocale,
+        "Content-Language": this.i18n.currentLocale,
+      }),
     });
   }
 
-  connectedCallback() {
-    // Primero renderizar estado inicial
+  async connectedCallback() {
+    // Inicializar i18n antes de renderizar
+    await this.initializeI18n();
     this.render();
-    // Luego cargar las páginas
     this.loadPages();
+  }
+
+  async initializeI18n() {
+    // Intentar cargar el idioma guardado
+    const savedLocale = localStorage.getItem("preferredLocale");
+
+    // Si no hay idioma guardado, detectar del navegador
+    const initialLocale = savedLocale || this.i18n.detectLocale();
+
+    // Cargar el idioma
+    await this.i18n.setLocale(initialLocale);
+
+    // Escuchar cambios de idioma para guardar la preferencia
+    window.addEventListener("localeChanged", (event) => {
+      const { locale } = event.detail;
+      localStorage.setItem("preferredLocale", locale);
+      this.render(); // Re-renderizar el componente
+    });
   }
 
   async loadPages() {
@@ -159,16 +183,38 @@ export class PageManager extends HTMLElement {
         <div class="header">
       <button class="back-button" id="backToList"><builder-icon name="home" size="20"></builder-icon></button>
       <h1 class="page-title">
-        ${this.pages.find((p) => p.id === this.currentPageId)?.name || "Editor"}
+        ${
+          this.pages.find((p) => p.id === this.currentPageId)?.name ||
+          this.i18n.t("builder.untitled")
+        }
         <small style="color: #666; font-size: 0.8em;">ID: ${
           this.currentPageId
         }</small>
       </h1>
+      <div class="language-selector">
+            <select id="languageSelect">
+              <option value="es" ${
+                this.i18n.currentLocale === "es" ? "selected" : ""
+              }>Español</option>
+              <option value="en" ${
+                this.i18n.currentLocale === "en" ? "selected" : ""
+              }>English</option>
+              <option value="fr" ${
+                this.i18n.currentLocale === "fr" ? "selected" : ""
+              }>Français</option>
+            </select>
+          </div>
     </div>
     <div class="builder-container">
       <page-builder pageId="${this.currentPageId}"></page-builder>
     </div>
       `;
+
+      // Configurar selector de idioma
+      const languageSelect = this.shadowRoot.getElementById("languageSelect");
+      languageSelect?.addEventListener("change", async (e) => {
+        await this.i18n.setLocale(e.target.value);
+      });
 
       const backButton = this.shadowRoot.getElementById("backToList");
       backButton.addEventListener("click", () => {
@@ -249,125 +295,161 @@ export class PageManager extends HTMLElement {
           }
         </style>
 
-        <div class="pages-header">
-          <h1>Mis Páginas</h1>
-          <button class="new-page-button" id="newPage">Crear Nueva Página</button>
+         <div class="pages-header">
+          <h1>${this.i18n.t("pages.list.title")}</h1>
+          <div class="header-actions">
+            <div class="language-selector">
+              <select id="languageSelect">
+                <option value="es" ${
+                  this.i18n.currentLocale === "es" ? "selected" : ""
+                }>Español</option>
+                <option value="en" ${
+                  this.i18n.currentLocale === "en" ? "selected" : ""
+                }>English</option>
+                <option value="fr" ${
+                  this.i18n.currentLocale === "fr" ? "selected" : ""
+                }>Français</option>
+              </select>
+            </div>
+            <button class="new-page-button" id="newPage">
+              ${this.i18n.t("pages.list.create")}
+            </button>
+          </div>
         </div>
 
         ${
           this.pages.length === 0
-            ? `
-          <div class="empty-state">
-            <h2>No hay páginas creadas</h2>
-            <p>Comienza creando tu primera página</p>
-          </div>
-        `
-            : `
-          <div class="pages-grid">
-            ${this.pages
-              .map(
-                (page) => `
-              <div class="page-card">
-      <div class="page-card-header">
-        <h2 class="page-name">${page.name}</h2>
-        <div class="page-actions">
-          <button class="page-action-button" data-action="edit" data-page-id="${
-            page.id
-          }"><builder-icon name="edit" size="20"></builder-icon></button>
-          <button class="page-action-button" data-action="delete" data-page-id="${
-            page.id
-          }"><builder-icon name="delete" size="20"></builder-icon></button>
-        </div>
-      </div>
-      <div class="page-meta">
-        Última modificación: ${new Date(page.lastModified).toLocaleString()}
-        <br>
-        <small style="color: #666;">ID: ${page.id}</small>
-      </div>
-    </div>
-            `
-              )
-              .join("")}
-          </div>
-        `
+            ? this.renderEmptyState()
+            : this.renderPageGrid()
         }
       `;
+    }
 
-      const newPageButton = this.shadowRoot.getElementById("newPage");
-      if (newPageButton) {
-        newPageButton.addEventListener("click", async () => {
-          try {
-            const pageId = `page-${Date.now()}`;
-            const newPage = {
-              id: pageId,
-              name: `Nueva Página ${this.pages.length + 1}`,
-              content: { rows: [] }, // Usar content en lugar de data
-              lastModified: new Date().toISOString(),
-            };
+    this.setupEventListeners();
+  }
 
-            await this.dataProvider.savePage(newPage);
-            this.currentPageId = pageId;
-            await this.loadPages(); // Recargar la lista
-            this.render();
+  setupEventListeners() {
+    // Configurar el selector de idioma
+    const languageSelect = this.shadowRoot.getElementById("languageSelect");
+    if (languageSelect) {
+      languageSelect.addEventListener("change", async (e) => {
+        await this.i18n.setLocale(e.target.value);
+      });
+    }
 
-            this.dispatchEvent(
-              new CustomEvent("pageSaved", {
-                detail: { page: newPage },
-              })
-            );
-          } catch (error) {
-            console.error("Error creating new page:", error);
-            this.dispatchEvent(
-              new CustomEvent("saveError", {
-                detail: { error },
-              })
-            );
-          }
-        });
-      }
+    // Configurar el botón de nueva página
+    const newPageButton = this.shadowRoot.getElementById("newPage");
+    if (newPageButton) {
+      newPageButton.addEventListener("click", () => this.handleNewPage());
+    }
 
-      this.shadowRoot
-        .querySelectorAll(".page-action-button")
-        .forEach((button) => {
-          button.addEventListener("click", async () => {
-            // Añadir async aquí
-            const action = button.dataset.action;
-            const pageId = button.dataset.pageId;
+    // Configurar los botones de acción de página
+    this.shadowRoot
+      .querySelectorAll(".page-action-button")
+      .forEach((button) => {
+        button.addEventListener("click", (e) => this.handlePageAction(e));
+      });
+  }
 
-            if (action === "edit") {
-              const pageData = this.pages.find((p) => p.id === pageId);
-              console.log("Editing page:", pageId, pageData);
+  renderEmptyState() {
+    return `
+      <div class="empty-state">
+        <h2>${this.i18n.t("pages.list.empty")}</h2>
+        <p>${this.i18n.t("pages.list.empty.description")}</p>
+      </div>
+    `;
+  }
 
-              if (pageData?.data || pageData?.content) {
-                // Verificar ambos content y data
-                this.currentPageId = pageId;
-                this.render();
-                this.loadBuilder(pageId);
-              }
-            } else if (action === "delete") {
-              if (
-                confirm("¿Estás seguro de que deseas eliminar esta página?")
-              ) {
-                try {
-                  await this.dataProvider.deletePage(pageId);
-                  await this.loadPages();
-                  this.dispatchEvent(
-                    new CustomEvent("pageDeleted", {
-                      detail: { pageId },
-                    })
-                  );
-                } catch (error) {
-                  console.error("Error deleting page:", error);
-                  this.dispatchEvent(
-                    new CustomEvent("deleteError", {
-                      detail: { error },
-                    })
-                  );
-                }
-              }
-            }
-          });
-        });
+  renderPageGrid() {
+    return `
+      <div class="pages-grid">
+        ${this.renderPageCards()}
+      </div>
+    `;
+  }
+
+  renderPageCards() {
+    return this.pages
+      .map(
+        (page) => `
+      <div class="page-card">
+        <div class="page-card-header">
+          <h2 class="page-name">${page.name}</h2>
+          <div class="page-actions">
+            <button class="page-action-button" data-action="edit" data-page-id="${
+              page.id
+            }" 
+              title="${this.i18n.t("pages.list.actions.edit")}">
+              <builder-icon name="edit" size="20"></builder-icon>
+            </button>
+            <button class="page-action-button" data-action="delete" data-page-id="${
+              page.id
+            }"
+              title="${this.i18n.t("pages.list.actions.delete")}">
+              <builder-icon name="trash" size="20"></builder-icon>
+            </button>
+          </div>
+        </div>
+        <div class="page-meta">
+          ${this.i18n.t("pages.lastModified")}: 
+          ${this.i18n.formatDate(new Date(page.lastModified))}
+          <br>
+          <small style="color: #666;">ID: ${page.id}</small>
+        </div>
+      </div>
+    `
+      )
+      .join("");
+  }
+
+  async handleNewPage() {
+    try {
+      const pageId = `page-${Date.now()}`;
+      const newPage = {
+        id: pageId,
+        name: `Nueva Página ${this.pages.length + 1}`,
+        content: { rows: [] },
+        lastModified: new Date().toISOString(),
+      };
+
+      await this.dataProvider.savePage(newPage);
+      this.currentPageId = pageId;
+      await this.loadPages();
+      this.render();
+
+      this.dispatchEvent(
+        new CustomEvent("pageSaved", {
+          detail: { page: newPage },
+        })
+      );
+    } catch (error) {
+      console.error("Error creating new page:", error);
+      this.dispatchEvent(
+        new CustomEvent("saveError", {
+          detail: { error },
+        })
+      );
+    }
+  }
+
+  async handlePageAction(e) {
+    const button = e.target;
+    const action = button.dataset.action;
+    const pageId = button.dataset.pageId;
+
+    if (action === "edit") {
+      await this.handlePageEdit(pageId);
+    } else if (action === "delete") {
+      await this.handlePageDelete(pageId);
+    }
+  }
+
+  async handlePageEdit(pageId) {
+    const pageData = this.pages.find((p) => p.id === pageId);
+    if (pageData?.data || pageData?.content) {
+      this.currentPageId = pageId;
+      this.render();
+      this.loadBuilder(pageId);
     }
   }
 }

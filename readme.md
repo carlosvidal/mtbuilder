@@ -1,4 +1,4 @@
-# Web Page Builder
+# MT Builder
 
 A modern, lightweight web page builder created with vanilla JavaScript and Web Components. This project aims to provide a drag-and-drop interface for building responsive web pages without dependencies.
 

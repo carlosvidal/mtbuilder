@@ -1,9 +1,15 @@
 // i18n.js
 export class I18n {
+  // Define las propiedades estáticas
+  static supportedLocales = ["en", "es", "fr"];
+  static fallbackLocale = "en";
+  static instance = null;
+
   constructor() {
     this.translations = {};
-    this.currentLocale = "es";
-    this.fallbackLocale = "en";
+    this.supportedLocales = I18n.supportedLocales;
+    this.fallbackLocale = I18n.fallbackLocale;
+    this.currentLocale = this.detectLocale();
   }
 
   static getInstance() {
@@ -13,16 +19,116 @@ export class I18n {
     return I18n.instance;
   }
 
+  isLocaleSupported(locale) {
+    const normalizedLocale = this.normalizeLocale(locale);
+    return I18n.supportedLocales.includes(normalizedLocale);
+  }
+
+  normalizeLocale(locale) {
+    if (!locale) return this.fallbackLocale;
+    return locale.split("-")[0].toLowerCase();
+  }
+
+  detectLocale() {
+    // 1. Primero intentar obtener del HTML
+    const htmlLang = document.documentElement.lang;
+    if (htmlLang && this.isLocaleSupported(htmlLang)) {
+      return this.normalizeLocale(htmlLang);
+    }
+
+    // 2. Intentar obtener del localStorage
+    const savedLocale = localStorage.getItem("preferredLocale");
+    if (savedLocale && this.isLocaleSupported(savedLocale)) {
+      return savedLocale;
+    }
+
+    // 3. Intentar obtener del navegador
+    const browserLocale = navigator.language || navigator.userLanguage;
+    const normalizedBrowserLocale = this.normalizeLocale(browserLocale);
+    if (this.isLocaleSupported(normalizedBrowserLocale)) {
+      return normalizedBrowserLocale;
+    }
+
+    // 4. Si todo falla, usar el idioma por defecto
+    return this.fallbackLocale;
+  }
+
+  // En i18n.js
   async loadTranslations(locale) {
     try {
-      const response = await fetch(`/locales/${locale}.json`);
-      const translations = await response.json();
-      this.translations[locale] = this.flattenTranslations(translations);
-      return true;
+      const normalizedLocale = this.normalizeLocale(locale);
+      console.log(
+        `🌍 Attempting to load translations for locale: ${normalizedLocale}`
+      );
+
+      if (this.translations[normalizedLocale]) {
+        console.log("✅ Using cached translations");
+        return true;
+      }
+
+      // Solo intentar una ruta basada en la estructura de tu proyecto
+      const path = `/src/locales/${normalizedLocale}.json`;
+
+      try {
+        console.log(`🔍 Loading from: ${path}`);
+        const response = await fetch(path);
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const translations = await response.json();
+        console.log("✅ Successfully loaded translations from file");
+        this.translations[normalizedLocale] =
+          this.flattenTranslations(translations);
+        return true;
+      } catch (error) {
+        console.log(`⚠️ Could not load from file: ${error.message}`);
+        console.log("↪️ Using built-in translations as fallback");
+
+        // Usar traducciones incorporadas como fallback
+        const builtInTranslations = await this.getBuiltInTranslations(
+          normalizedLocale
+        );
+        this.translations[normalizedLocale] =
+          this.flattenTranslations(builtInTranslations);
+        return true;
+      }
     } catch (error) {
-      console.error(`Error loading translations for ${locale}:`, error);
+      console.error(`❌ Error in loadTranslations for ${locale}:`, error);
       return false;
     }
+  }
+
+  // Método para obtener las traducciones incorporadas
+  getBuiltInTranslations(locale) {
+    // Definir las traducciones directamente en el código
+    const translations = {
+      en: {
+        "pages.list.title": "My Pages",
+        "pages.list.empty": "No pages created yet",
+        "pages.list.empty.description": "Start by creating your first page",
+        "pages.list.create": "Create New Page",
+        "pages.list.actions.edit": "Edit",
+        "pages.list.actions.delete": "Delete",
+        "pages.lastModified": "Last modified",
+        "builder.untitled": "Untitled Page",
+      },
+      es: {
+        "pages.list.title": "Mis páginas",
+        "pages.list.empty": "No hay páginas creadas",
+        "pages.list.empty.description": "Comienza creando tu primera página",
+        "pages.list.create": "Crear nueva página",
+        "pages.list.actions.edit": "Editar",
+        "pages.list.actions.delete": "Eliminar",
+        "pages.lastModified": "Última modificación",
+        "builder.untitled": "Página sin título",
+      },
+    };
+
+    return Promise.resolve(
+      translations[locale] || translations[this.fallbackLocale]
+    );
   }
 
   flattenTranslations(obj, prefix = "") {
@@ -38,67 +144,78 @@ export class I18n {
   }
 
   async setLocale(locale) {
-    if (!this.translations[locale]) {
-      const loaded = await this.loadTranslations(locale);
-      if (!loaded) {
-        console.warn(
-          `Could not load translations for ${locale}, falling back to ${this.fallbackLocale}`
-        );
-        return false;
-      }
+    const normalizedLocale = this.normalizeLocale(locale);
+
+    if (!this.isLocaleSupported(normalizedLocale)) {
+      console.warn(
+        `Locale ${normalizedLocale} is not supported, falling back to ${this.fallbackLocale}`
+      );
+      return false;
     }
-    this.currentLocale = locale;
-    // Disparar evento de cambio de idioma
+
+    const loaded = await this.loadTranslations(normalizedLocale);
+    if (!loaded) {
+      console.warn(
+        `Could not load translations for ${normalizedLocale}, falling back to ${this.fallbackLocale}`
+      );
+      return false;
+    }
+
+    this.currentLocale = normalizedLocale;
+
     window.dispatchEvent(
-      new CustomEvent("localeChanged", { detail: { locale } })
+      new CustomEvent("localeChanged", {
+        detail: { locale: normalizedLocale },
+      })
     );
+
     return true;
   }
 
   t(key, params = {}) {
-    const translation =
-      this.translations[this.currentLocale]?.[key] ||
-      this.translations[this.fallbackLocale]?.[key] ||
-      key;
+    let translation = this.translations[this.currentLocale]?.[key];
+
+    if (!translation && this.currentLocale !== this.fallbackLocale) {
+      translation = this.translations[this.fallbackLocale]?.[key];
+    }
+
+    if (!translation) {
+      console.warn(`Translation missing for key: ${key}`);
+      return key;
+    }
 
     return translation.replace(/\{(\w+)\}/g, (_, param) => {
       return params[param] !== undefined ? params[param] : `{${param}}`;
     });
   }
 
-  // Método para pluralización
   p(key, count, params = {}) {
     const pluralKey = `${key}.${this.getPluralForm(count)}`;
     return this.t(pluralKey, { ...params, count });
   }
 
   getPluralForm(count) {
-    // Implementación básica para español
-    return count === 1 ? "one" : "other";
+    switch (this.currentLocale) {
+      case "es":
+        return count === 1 ? "one" : "other";
+      case "en":
+      default:
+        return count === 1 ? "one" : "other";
+    }
   }
-}
 
-// Decorador para hacer que los componentes web sean traducibles
-export function Translatable(Base) {
-  return class extends Base {
-    constructor() {
-      super();
-      this.i18n = I18n.getInstance();
+  formatNumber(number, options = {}) {
+    return new Intl.NumberFormat(this.currentLocale, options).format(number);
+  }
 
-      // Re-renderizar cuando cambie el idioma
-      window.addEventListener("localeChanged", () => {
-        this.requestUpdate?.();
-      });
-    }
+  formatDate(date, options = {}) {
+    return new Intl.DateTimeFormat(this.currentLocale, options).format(date);
+  }
 
-    // Método de ayuda para traducir
-    t(key, params = {}) {
-      return this.i18n.t(key, params);
-    }
-
-    // Método de ayuda para pluralizar
-    p(key, count, params = {}) {
-      return this.i18n.p(key, count, params);
-    }
-  };
+  formatCurrency(amount, currency = "EUR") {
+    return new Intl.NumberFormat(this.currentLocale, {
+      style: "currency",
+      currency,
+    }).format(amount);
+  }
 }

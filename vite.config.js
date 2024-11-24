@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import { resolve } from "path";
 
 export default defineConfig({
+  publicDir: "src/locales", // Esto hace que los archivos en src/locales sean accesibles
   build: {
     lib: {
       entry: resolve(__dirname, "src/js/index.js"),
@@ -110,11 +111,27 @@ export default defineConfig({
         },
       },
     },
+    copyPublicDir: true,
     target: "es2015",
     assetsInlineLimit: 4096,
     cssCodeSplit: true,
     reportCompressedSize: true,
     emptyOutDir: true,
+  },
+  resolve: {
+    alias: {
+      "@": resolve(__dirname, "./src"),
+    },
+  },
+  assetsInclude: ["**/*.json"], // Incluir archivos JSON como assets
+  server: {
+    watch: {
+      usePolling: true,
+    },
+    static: {
+      directory: resolve(__dirname, "src/locales"),
+      publicPath: "/locales",
+    },
   },
   esbuild: {
     target: "es2015",

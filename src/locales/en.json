@@ -1,0 +1,214 @@
+{
+    "builder": {
+        "sidebar": {
+            "tabs": {
+                "elements": "Elements",
+                "rows": "Rows",
+                "settings": "Settings"
+            },
+            "elements": {
+                "heading": "Heading",
+                "text": "Text",
+                "image": "Image",
+                "button": "Button",
+                "table": "Table",
+                "list": "List",
+                "video": "Video",
+                "divider": "Divider",
+                "spacer": "Spacer",
+                "html": "HTML"
+            }
+        },
+        "canvas": {
+            "empty": {
+                "title": "Start Your Design",
+                "subtitle": "Drag elements from the sidebar"
+            },
+            "dropzone": {
+                "hint": "Drop elements here"
+            }
+        },
+        "editor": {
+            "common": {
+                "styles": {
+                    "title": "Styles",
+                    "color": "Color",
+                    "background": "Background",
+                    "border": "Border",
+                    "spacing": "Spacing"
+                }
+            },
+            "elements": {
+                "heading": {
+                    "title": "Edit Heading",
+                    "level": "Level",
+                    "content": "Content"
+                },
+                "text": {
+                    "title": "Edit Text",
+                    "content": "Content"
+                },
+                "button": {
+                    "title": "Edit Button",
+                    "text": "Text",
+                    "link": "Link",
+                    "type": "Type"
+                },
+                "image": {
+                    "title": "Edit Image",
+                    "source": "Image URL",
+                    "alt": "Alt Text",
+                    "dimensions": "Dimensions"
+                },
+                "video": {
+                    "title": "Edit Video",
+                    "source": "Video URL",
+                    "ratio": "Aspect Ratio"
+                },
+                "table": {
+                    "title": "Edit Table",
+                    "rows": "Rows",
+                    "columns": "Columns",
+                    "header": "Header Style",
+                    "cellPadding": "Cell Padding"
+                },
+                "list": {
+                    "title": "Edit List",
+                    "type": "List Type",
+                    "items": "List Items",
+                    "itemsHint": "One item per line"
+                },
+                "spacer": {
+                    "title": "Edit Spacer",
+                    "height": "Height",
+                    "mobileVisibility": "Mobile Visibility"
+                }
+            }
+        },
+        "actions": {
+            "add": "Add",
+            "remove": "Remove",
+            "moveUp": "Move Up",
+            "moveDown": "Move Down",
+            "duplicate": "Duplicate"
+        },
+        "settings": {
+            "page": {
+                "title": "Page Settings",
+                "maxWidth": "Maximum Width",
+                "background": "Background Color",
+                "font": "Font Family"
+            },
+            "responsive": {
+                "title": "Responsive Settings",
+                "breakpoints": "Breakpoints",
+                "mobile": "Mobile",
+                "tablet": "Tablet",
+                "desktop": "Desktop"
+            }
+        },
+        "untitled": "Untitled Page"
+    },
+    "pages": {
+        "list": {
+            "title": "My Pages",
+            "empty": "No pages created yet",
+            "empty.description": "Start by creating your first page",
+            "create": "Create New Page",
+            "actions": {
+                "edit": "Edit",
+                "delete": "Delete",
+                "duplicate": "Duplicate",
+                "preview": "Preview"
+            }
+        },
+        "count": {
+            "one": "{count} page",
+            "other": "{count} pages"
+        },
+        "status": {
+            "draft": "Draft",
+            "published": "Published",
+            "archived": "Archived"
+        },
+        "lastModified": "Last modified",
+        "sorting": {
+            "title": "Sort by",
+            "name": "Name",
+            "date": "Date",
+            "status": "Status"
+        },
+        "filters": {
+            "title": "Filters",
+            "all": "All Pages",
+            "drafts": "Drafts",
+            "published": "Published",
+            "archived": "Archived"
+        }
+    },
+    "common": {
+        "save": "Save",
+        "cancel": "Cancel",
+        "delete": "Delete",
+        "edit": "Edit",
+        "back": "Back",
+        "next": "Next",
+        "previous": "Previous",
+        "loading": "Loading...",
+        "search": "Search",
+        "filter": "Filter",
+        "sort": "Sort",
+        "confirmation": {
+            "delete": "Are you sure you want to delete this?",
+            "discard": "Are you sure you want to discard changes?"
+        },
+        "errors": {
+            "required": "This field is required",
+            "invalid": "This value is invalid",
+            "save": "Error saving changes",
+            "load": "Error loading content",
+            "delete": "Error deleting item",
+            "network": "Network error occurred",
+            "unknown": "An unknown error occurred"
+        },
+        "success": {
+            "save": "Changes saved successfully",
+            "delete": "Item deleted successfully",
+            "create": "Created successfully"
+        },
+        "buttons": {
+            "apply": "Apply",
+            "reset": "Reset",
+            "clear": "Clear",
+            "close": "Close",
+            "done": "Done",
+            "confirm": "Confirm"
+        }
+    },
+    "preview": {
+        "title": "Preview",
+        "devices": {
+            "desktop": "Desktop",
+            "tablet": "Tablet",
+            "mobile": "Mobile"
+        },
+        "actions": {
+            "refresh": "Refresh",
+            "open": "Open in new tab",
+            "download": "Download HTML"
+        }
+    },
+    "export": {
+        "title": "Export",
+        "formats": {
+            "html": "HTML",
+            "json": "JSON"
+        },
+        "options": {
+            "title": "Export Options",
+            "styles": "Include styles",
+            "assets": "Include assets",
+            "minify": "Minify output"
+        }
+    }
+}
