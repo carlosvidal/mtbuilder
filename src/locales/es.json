@@ -53,24 +53,97 @@
                     "text": "Texto",
                     "link": "Enlace",
                     "type": "Tipo"
+                },
+                "image": {
+                    "title": "Editar imagen",
+                    "source": "URL de la imagen",
+                    "alt": "Texto alternativo",
+                    "dimensions": "Dimensiones"
+                },
+                "video": {
+                    "title": "Editar video",
+                    "source": "URL del video",
+                    "ratio": "Relación de aspecto"
+                },
+                "table": {
+                    "title": "Editar tabla",
+                    "rows": "Filas",
+                    "columns": "Columnas",
+                    "header": "Estilo de encabezado",
+                    "cellPadding": "Relleno de celdas"
+                },
+                "list": {
+                    "title": "Editar lista",
+                    "type": "Tipo de lista",
+                    "items": "Elementos",
+                    "itemsHint": "Un elemento por línea"
+                },
+                "spacer": {
+                    "title": "Editar espacio",
+                    "height": "Altura",
+                    "mobileVisibility": "Visibilidad en móvil"
                 }
             }
-        }
+        },
+        "actions": {
+            "add": "Añadir",
+            "remove": "Eliminar",
+            "moveUp": "Subir",
+            "moveDown": "Bajar",
+            "duplicate": "Duplicar"
+        },
+        "settings": {
+            "page": {
+                "title": "Ajustes de página",
+                "maxWidth": "Ancho máximo",
+                "background": "Color de fondo",
+                "font": "Tipo de letra"
+            },
+            "responsive": {
+                "title": "Ajustes responsivos",
+                "breakpoints": "Puntos de quiebre",
+                "mobile": "Móvil",
+                "tablet": "Tableta",
+                "desktop": "Escritorio"
+            }
+        },
+        "untitled": "Página sin título"
     },
     "pages": {
         "list": {
             "title": "Mis páginas",
             "empty": "No hay páginas creadas",
+            "empty.description": "Comienza creando tu primera página",
             "create": "Crear nueva página",
             "actions": {
                 "edit": "Editar",
                 "delete": "Eliminar",
-                "duplicate": "Duplicar"
+                "duplicate": "Duplicar",
+                "preview": "Vista previa"
             }
         },
         "count": {
             "one": "{count} página",
             "other": "{count} páginas"
+        },
+        "status": {
+            "draft": "Borrador",
+            "published": "Publicado",
+            "archived": "Archivado"
+        },
+        "lastModified": "Última modificación",
+        "sorting": {
+            "title": "Ordenar por",
+            "name": "Nombre",
+            "date": "Fecha",
+            "status": "Estado"
+        },
+        "filters": {
+            "title": "Filtros",
+            "all": "Todas las páginas",
+            "drafts": "Borradores",
+            "published": "Publicadas",
+            "archived": "Archivadas"
         }
     },
     "common": {
@@ -79,15 +152,63 @@
         "delete": "Eliminar",
         "edit": "Editar",
         "back": "Volver",
+        "next": "Siguiente",
+        "previous": "Anterior",
         "loading": "Cargando...",
+        "search": "Buscar",
+        "filter": "Filtrar",
+        "sort": "Ordenar",
         "confirmation": {
-            "delete": "¿Estás seguro de que deseas eliminar esto?"
+            "delete": "¿Estás seguro de que deseas eliminar esto?",
+            "discard": "¿Estás seguro de que deseas descartar los cambios?"
         },
         "errors": {
             "required": "Este campo es obligatorio",
             "invalid": "Este valor no es válido",
-            "save": "Error al guardar",
-            "load": "Error al cargar"
+            "save": "Error al guardar los cambios",
+            "load": "Error al cargar el contenido",
+            "delete": "Error al eliminar el elemento",
+            "network": "Error de red",
+            "unknown": "Ha ocurrido un error desconocido"
+        },
+        "success": {
+            "save": "Cambios guardados exitosamente",
+            "delete": "Elemento eliminado exitosamente",
+            "create": "Creado exitosamente"
+        },
+        "buttons": {
+            "apply": "Aplicar",
+            "reset": "Restablecer",
+            "clear": "Limpiar",
+            "close": "Cerrar",
+            "done": "Hecho",
+            "confirm": "Confirmar"
+        }
+    },
+    "preview": {
+        "title": "Vista previa",
+        "devices": {
+            "desktop": "Escritorio",
+            "tablet": "Tableta",
+            "mobile": "Móvil"
+        },
+        "actions": {
+            "refresh": "Actualizar",
+            "open": "Abrir en nueva pestaña",
+            "download": "Descargar HTML"
+        }
+    },
+    "export": {
+        "title": "Exportar",
+        "formats": {
+            "html": "HTML",
+            "json": "JSON"
+        },
+        "options": {
+            "title": "Opciones de exportación",
+            "styles": "Incluir estilos",
+            "assets": "Incluir recursos",
+            "minify": "Minificar salida"
         }
     }
 }

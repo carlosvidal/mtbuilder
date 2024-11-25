@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import { resolve } from "path";
 
 export default defineConfig({
-  publicDir: "src/locales", // Esto hace que los archivos en src/locales sean accesibles
+  //publicDir: "src/locales", // Esto hace que los archivos en src/locales sean accesibles
   build: {
     lib: {
       entry: resolve(__dirname, "src/js/index.js"),

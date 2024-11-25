@@ -347,7 +347,12 @@ export class PageManager extends HTMLElement {
     this.shadowRoot
       .querySelectorAll(".page-action-button")
       .forEach((button) => {
-        button.addEventListener("click", (e) => this.handlePageAction(e));
+        button.addEventListener("click", (e) => {
+          const actionButton = e.target.closest(".page-action-button");
+          if (actionButton) {
+            this.handlePageAction(actionButton);
+          }
+        });
       });
   }
 
@@ -386,7 +391,7 @@ export class PageManager extends HTMLElement {
               page.id
             }"
               title="${this.i18n.t("pages.list.actions.delete")}">
-              <builder-icon name="trash" size="20"></builder-icon>
+              <builder-icon name="delete" size="20"></builder-icon>
             </button>
           </div>
         </div>
@@ -432,8 +437,7 @@ export class PageManager extends HTMLElement {
     }
   }
 
-  async handlePageAction(e) {
-    const button = e.target;
+  async handlePageAction(button) {
     const action = button.dataset.action;
     const pageId = button.dataset.pageId;
 
@@ -450,6 +454,26 @@ export class PageManager extends HTMLElement {
       this.currentPageId = pageId;
       this.render();
       this.loadBuilder(pageId);
+    }
+  }
+
+  async handlePageDelete(pageId) {
+    if (confirm(this.i18n.t("common.confirmation.delete"))) {
+      try {
+        await this.deletePage(pageId);
+        this.dispatchEvent(
+          new CustomEvent("pageDeleted", {
+            detail: { pageId },
+          })
+        );
+      } catch (error) {
+        console.error("Error deleting page:", error);
+        this.dispatchEvent(
+          new CustomEvent("deleteError", {
+            detail: { error },
+          })
+        );
+      }
     }
   }
 }

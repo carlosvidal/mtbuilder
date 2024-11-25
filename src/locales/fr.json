@@ -63,7 +63,7 @@
                 "video": {
                     "title": "Modifier la vidéo",
                     "source": "URL de la vidéo",
-                    "ratio": "Ratio d'aspect"
+                    "ratio": "Format d'image"
                 },
                 "table": {
                     "title": "Modifier le tableau",
@@ -100,7 +100,7 @@
                 "font": "Police"
             },
             "responsive": {
-                "title": "Paramètres responsive",
+                "title": "Paramètres responsifs",
                 "breakpoints": "Points de rupture",
                 "mobile": "Mobile",
                 "tablet": "Tablette",
@@ -211,4 +211,3 @@
             "minify": "Minifier la sortie"
         }
     }
-}
