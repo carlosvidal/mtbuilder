@@ -19,6 +19,7 @@ This project is currently in early development and not ready for production use.
 - 📋 Copy HTML/JSON output
 - 🖼️ Visual page builder interface
 - 🔌 Backend Integration API
+- 🌍 Multilingual support (i18n)
 
 ## 🛠️ Element Types
 - 📝 Text blocks
@@ -31,6 +32,42 @@ This project is currently in early development and not ready for production use.
 - ➖ Dividers
 - ↕️ Spacers
 - </> Custom HTML
+
+## 🌍 Internationalization (i18n)
+The page builder includes built-in support for multiple languages:
+
+### Supported Languages
+- 🇺🇸 English (en)
+- 🇪🇸 Spanish (es)
+- 🇫🇷 French (fr)
+
+### Language Features
+- 🔄 Automatic language detection
+- 💾 Language preference persistence
+- 🔌 Easy integration with new languages
+- 🎯 Fallback to default language
+- 📱 Real-time language switching
+
+### Adding New Languages
+To add a new language:
+1. Create a new JSON file in `/src/locales/` with the language code (e.g., `de.json`)
+2. Follow the existing translation structure
+3. Register the language code in `i18n.js`
+
+```javascript
+// Example translation file structure
+{
+    "builder": {
+        "sidebar": {
+            "tabs": {
+                "elements": "Elements",
+                "rows": "Rows",
+                "settings": "Settings"
+            }
+        }
+    }
+}
+```
 
 ## 🔌 Integration API
 The page builder can be integrated with any backend system using our flexible integration API. It supports three modes of operation:
@@ -45,11 +82,12 @@ The page builder can be integrated with any backend system using our flexible in
 <!-- Local Storage Only -->
 <page-manager></page-manager>
 
-<!-- With Backend Integration -->
+<!-- With Backend Integration and Language -->
 <page-manager 
   api-endpoint="https://your-api.com/v1"
   api-key="your-api-key"
-  mode="hybrid">
+  mode="hybrid"
+  lang="es">
 </page-manager>
 ```
 
@@ -106,6 +144,11 @@ pageManager.addEventListener('pageSaved', (event) => {
 pageManager.addEventListener('saveError', (event) => {
   console.error('Save error:', event.detail.error);
 });
+
+// Listen for language changes
+pageManager.addEventListener('languageChanged', (event) => {
+  console.log('Language changed:', event.detail.language);
+});
 ```
 
 ### Custom Storage Adapters
@@ -140,34 +183,22 @@ cd mtbuilder
 ├── js
 │   ├── components
 │   │   ├── editors
-│   │   │   ├── base-element-editor.js
-│   │   │   ├── button-editor.js
-│   │   │   ├── divider-editor.js
-│   │   │   ├── heading-editor.js
-│   │   │   ├── html-editor.js
-│   │   │   ├── image-editor.js
-│   │   │   ├── list-editor.js
-│   │   │   ├── spacer-editor.js
-│   │   │   ├── table-editor.js
-│   │   │   ├── text-editor.js
-│   │   │   └── video-editor.js
-│   │   ├── .DS_Store
 │   │   ├── builder-canvas.js
 │   │   ├── builder-sidebar.js
 │   │   ├── canvas-view-switcher.js
-│   │   ├── element-editor-factory.js
 │   │   ├── element-editor.js
-│   │   ├── page-builder-data-provider.js
-│   │   ├── page-builder-events.js
 │   │   ├── page-builder.js
-│   │   ├── page-manager.js
-│   │   └── register-editors.js
+│   │   └── page-manager.js
 │   ├── utils
 │   │   ├── canvas-storage.js
 │   │   ├── export-utils.js
-│   │   └── history.js
-│   ├── .DS_Store
+│   │   ├── history.js
+│   │   └── i18n.js
 │   └── index.js
+├── locales
+│   ├── en.json
+│   ├── es.json
+│   └── fr.json
 └── index.html
 ```
 
@@ -184,6 +215,7 @@ As this project is in early development, contributions are welcome but please no
 - [x] Complete core builder functionality
 - [x] Implement undo/redo system
 - [x] Add backend integration API
+- [x] Add multilingual support
 - [ ] Add theme support
 - [ ] Create comprehensive documentation
 - [ ] Add unit tests
