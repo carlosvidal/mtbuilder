@@ -17,7 +17,21 @@
                 "divider": "Séparateur",
                 "spacer": "Espace",
                 "html": "HTML"
-            }
+            },
+            "rows": {
+                "columns": "Colonnes",
+                "oneColumn": "1 Colonne",
+                "twoColumns": "2 Colonnes",
+                "threeColumns": "3 Colonnes",
+                "fourColumns": "4 Colonnes"
+            },
+            "principal": {
+                "title": "Paramètres Principaux",
+                "description": "Ajustez les paramètres principaux de votre page",
+                "layout": "Paramètres de Mise en Page"
+            },
+            "dropHint": "Glissez et déposez les éléments ici",
+            "back": "Retour au panneau latéral"
         },
         "canvas": {
             "empty": {
@@ -26,6 +40,37 @@
             },
             "dropzone": {
                 "hint": "Déposez les éléments ici"
+            },
+            "views": {
+                "design": "Conception",
+                "preview": "Aperçu",
+                "html": "HTML",
+                "json": "JSON"
+            },
+            "actions": {
+                "undo": "Annuler",
+                "redo": "Rétablir",
+                "copy": "Copier",
+                "download": "Télécharger",
+                "copyHtml": "Copier HTML",
+                "copyJson": "Copier JSON",
+                "downloadHtml": "Télécharger HTML"
+            },
+            "preview": {
+                "devices": {
+                    "desktop": "Bureau",
+                    "tablet": "Tablette",
+                    "mobile": "Mobile"
+                }
+            },
+            "empty": {
+                "title": "Commencez votre design",
+                "subtitle": "Faites glisser les éléments depuis la barre latérale",
+                "dropHint": "Déposez les éléments ici"
+            },
+            "confirmations": {
+                "copySuccess": "Copié dans le presse-papiers",
+                "downloadStart": "Démarrage du téléchargement..."
             }
         },
         "editor": {

@@ -17,7 +17,21 @@
                 "divider": "Divisor",
                 "spacer": "Espacio",
                 "html": "HTML"
-            }
+            },
+            "rows": {
+                "columns": "Columnas",
+                "oneColumn": "1 Columna",
+                "twoColumns": "2 Columnas",
+                "threeColumns": "3 Columnas",
+                "fourColumns": "4 Columnas"
+            },
+            "principal": {
+                "title": "Ajustes Principales",
+                "description": "Ajusta la configuración principal de tu página",
+                "layout": "Ajustes de Diseño"
+            },
+            "dropHint": "Arrastra y suelta elementos aquí",
+            "back": "Volver al panel lateral"
         },
         "canvas": {
             "empty": {
@@ -26,6 +40,37 @@
             },
             "dropzone": {
                 "hint": "Arrastra elementos aquí"
+            },
+            "views": {
+                "design": "Diseño",
+                "preview": "Vista previa",
+                "html": "HTML",
+                "json": "JSON"
+            },
+            "actions": {
+                "undo": "Deshacer",
+                "redo": "Rehacer",
+                "copy": "Copiar",
+                "download": "Descargar",
+                "copyHtml": "Copiar HTML",
+                "copyJson": "Copiar JSON",
+                "downloadHtml": "Descargar HTML"
+            },
+            "preview": {
+                "devices": {
+                    "desktop": "Escritorio",
+                    "tablet": "Tableta",
+                    "mobile": "Móvil"
+                }
+            },
+            "empty": {
+                "title": "Comienza tu diseño",
+                "subtitle": "Arrastra elementos desde el panel lateral",
+                "dropHint": "Suelta los elementos aquí"
+            },
+            "confirmations": {
+                "copySuccess": "Copiado al portapapeles",
+                "downloadStart": "Iniciando descarga..."
             }
         },
         "editor": {

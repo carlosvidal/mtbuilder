@@ -17,7 +17,21 @@
                 "divider": "Divider",
                 "spacer": "Spacer",
                 "html": "HTML"
-            }
+            },
+            "rows": {
+                "columns": "Columns",
+                "oneColumn": "1 Column",
+                "twoColumns": "2 Columns",
+                "threeColumns": "3 Columns",
+                "fourColumns": "4 Columns"
+            },
+            "principal": {
+                "title": "Main Settings",
+                "description": "Adjust the main settings for your page",
+                "layout": "Layout Settings"
+            },
+            "dropHint": "Drag and drop elements here",
+            "back": "Back to sidebar"
         },
         "canvas": {
             "empty": {
@@ -26,6 +40,37 @@
             },
             "dropzone": {
                 "hint": "Drop elements here"
+            },
+            "views": {
+                "design": "Design",
+                "preview": "Preview",
+                "html": "HTML",
+                "json": "JSON"
+            },
+            "actions": {
+                "undo": "Undo",
+                "redo": "Redo",
+                "copy": "Copy",
+                "download": "Download",
+                "copyHtml": "Copy HTML",
+                "copyJson": "Copy JSON",
+                "downloadHtml": "Download HTML"
+            },
+            "preview": {
+                "devices": {
+                    "desktop": "Desktop",
+                    "tablet": "Tablet",
+                    "mobile": "Mobile"
+                }
+            },
+            "empty": {
+                "title": "Start Your Design",
+                "subtitle": "Drag elements from the sidebar",
+                "dropHint": "Drop elements here"
+            },
+            "confirmations": {
+                "copySuccess": "Copied to clipboard",
+                "downloadStart": "Starting download..."
             }
         },
         "editor": {

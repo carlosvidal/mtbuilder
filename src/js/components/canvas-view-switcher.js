@@ -1,6 +1,7 @@
 import { BuilderIcon } from "./builder-icon.js";
 import { History } from "../utils/history.js";
 import { ExportUtils } from "../utils/export-utils.js";
+import { I18n } from "../utils/i18n.js";
 
 class CanvasViewSwitcher extends HTMLElement {
   constructor() {
@@ -11,6 +12,9 @@ class CanvasViewSwitcher extends HTMLElement {
     this.canvas = null;
     this.history = new History();
     this._isUndoRedoOperation = false;
+    this.i18n = I18n.getInstance();
+    console.log("Current locale:", this.i18n.currentLocale);
+    console.log("Translation test:", this.i18n.t("canvas.views.design"));
     window.builderEvents = window.builderEvents || new EventTarget();
 
     // Bind methods
@@ -49,6 +53,10 @@ class CanvasViewSwitcher extends HTMLElement {
     this.setupEventListeners();
     this.updateActiveView();
 
+    window.addEventListener("localeChanged", () => {
+      this.setupInitialDOM();
+    });
+
     window.builderEvents.addEventListener(
       "historyChange",
       this.handleHistoryChange
@@ -62,6 +70,11 @@ class CanvasViewSwitcher extends HTMLElement {
         this.contentChangedListener
       );
     }
+
+    window.removeEventListener("localeChanged", () => {
+      this.setupInitialDOM();
+    });
+
     window.builderEvents.removeEventListener(
       "historyChange",
       this.handleHistoryChange
@@ -414,20 +427,28 @@ class CanvasViewSwitcher extends HTMLElement {
        <div class="view-container">
       <div class="view-header">
         <div class="view-tabs">
-          <button class="view-tab active" data-view="design">Design</button>
-          <button class="view-tab" data-view="preview">Preview</button>
-          <button class="view-tab" data-view="html">HTML</button>
-          <button class="view-tab" data-view="json">JSON</button>
+<button class="view-tab active" data-view="design">${this.i18n.t(
+      "builder.canvas.views.design"
+    )}</button>
+<button class="view-tab" data-view="preview">${this.i18n.t(
+      "builder.canvas.views.preview"
+    )}</button>
+<button class="view-tab" data-view="html">${this.i18n.t(
+      "builder.canvas.views.html"
+    )}</button>
+<button class="view-tab" data-view="json">${this.i18n.t(
+      "builder.canvas.views.json"
+    )}</button>
         </div>
         <div class="view-actions">
-          <button class="undo-button" disabled>
-    <builder-icon name="undo" size="20"></builder-icon>
-    <span>Deshacer</span>
-  </button>
-  <button class="redo-button" disabled>
-    <builder-icon name="redo" size="20"></builder-icon>
-    <span>Rehacer</span>
-  </button>
+<button class="undo-button" disabled>
+  <builder-icon name="undo" size="20"></builder-icon>
+  <span>${this.i18n.t("builder.canvas.actions.undo")}</span>
+</button>
+<button class="redo-button" disabled>
+  <builder-icon name="redo" size="20"></builder-icon>
+  <span>${this.i18n.t("builder.canvas.actions.redo")}</span>
+</button>
         </div>
       </div>
 

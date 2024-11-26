@@ -1,10 +1,12 @@
 import { CanvasStorage } from "../utils/canvas-storage.js";
 import { History } from "../utils/history.js";
+import { I18n } from "../utils/i18n.js";
 
 class BuilderCanvas extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
+    this.i18n = I18n.getInstance();
     this.rows = [];
     this.globalSettings = {
       maxWidth: "1200px",
@@ -136,6 +138,10 @@ class BuilderCanvas extends HTMLElement {
       this.setupEventListeners();
       this.setupElementSelection();
     });
+
+    window.addEventListener("localeChanged", () => {
+      this.render();
+    });
   }
 
   // En builder-canvas.js, en el método emitContentChanged:
@@ -166,6 +172,10 @@ class BuilderCanvas extends HTMLElement {
       });
       this.dispatchEvent(event);
     }
+
+    window.removeEventListener("localeChanged", () => {
+      this.render();
+    });
   }
   // En builder-canvas.js, reemplazar el método getEditorData()// En builder-canvas.js, modificar el método setEditorData
   setEditorData(data, suppressEvent = false) {
@@ -726,7 +736,7 @@ class BuilderCanvas extends HTMLElement {
     const defaults = {
       heading: {
         tag: "h2",
-        content: "Nuevo Encabezado",
+        content: this.i18n.t("builder.editor.elements.heading.content"),
         styles: {
           color: "#333333",
           margin: "0 0 1rem 0",
@@ -736,7 +746,7 @@ class BuilderCanvas extends HTMLElement {
       },
       text: {
         tag: "p",
-        content: "Haz clic para editar este texto",
+        content: this.i18n.t("builder.editor.elements.text.content"),
         styles: {
           color: "#666",
           margin: "0 0 1rem 0",
@@ -748,7 +758,7 @@ class BuilderCanvas extends HTMLElement {
         tag: "img",
         attributes: {
           src: "/api/placeholder/400/300",
-          alt: "Imagen de ejemplo",
+          alt: this.i18n.t("builder.editor.elements.image.alt"),
         },
         styles: {
           maxWidth: "100%",
@@ -758,7 +768,7 @@ class BuilderCanvas extends HTMLElement {
       },
       button: {
         tag: "button",
-        content: "Botón",
+        content: this.i18n.t("builder.editor.elements.button.text"),
         styles: {
           background: "#2196F3",
           color: "white",
@@ -846,7 +856,7 @@ class BuilderCanvas extends HTMLElement {
       },
       html: {
         tag: "div",
-        content: "<div>Personaliza tu HTML aquí</div>",
+        content: this.i18n.t("builder.editor.elements.default.content"),
         styles: {
           padding: "1rem",
           background: "#f5f5f5",
@@ -985,7 +995,9 @@ class BuilderCanvas extends HTMLElement {
                   ${
                     column.elements.length === 0
                       ? `<div class="empty-column">
-                      <span>Arrastra elementos aquí</span>
+                      <span>${this.i18n.t(
+                        "builder.canvas.dropzone.hint"
+                      )}</span>
                     </div>`
                       : column.elements
                           .map((element) => this.renderElement(element))
@@ -1446,10 +1458,10 @@ class BuilderCanvas extends HTMLElement {
             ${
               this.rows.length === 0
                 ? `<div class="empty-message">
-                    <h3>Comienza tu diseño</h3>
-                    <p>Arrastra filas desde el panel lateral para comenzar</p>
-                    <p><small>ID: ${currentPageId || "null"}</small></p>
-                  </div>`
+      <h3>${this.i18n.t("builder.canvas.empty.title")}</h3>
+      <p>${this.i18n.t("builder.canvas.empty.subtitle")}</p>
+      <p><small>ID: ${currentPageId || "null"}</small></p>
+    </div>`
                 : this.rows.map((row) => this.renderRow(row)).join("")
             }
           </div>

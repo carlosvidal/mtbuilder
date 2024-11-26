@@ -1,4 +1,5 @@
 import { BuilderIcon } from "./builder-icon.js";
+import { I18n } from "../utils/i18n.js";
 
 class BuilderSidebar extends HTMLElement {
   constructor() {
@@ -7,72 +8,186 @@ class BuilderSidebar extends HTMLElement {
     this.currentTab = "principal";
     this.showingEditor = false;
     this.selectedElement = null;
+    this.i18n = I18n.getInstance();
 
     this.rows = [
-      {
-        type: "row-1",
-        label: "1 Columna",
-        columns: 1,
-      },
-      {
-        type: "row-2",
-        label: "2 Columnas",
-        columns: 2,
-      },
-      {
-        type: "row-3",
-        label: "3 Columnas",
-        columns: 3,
-      },
-      {
-        type: "row-4",
-        label: "4 Columnas",
-        columns: 4,
-      },
+      { type: "row-1", columns: 1 },
+      { type: "row-2", columns: 2 },
+      { type: "row-3", columns: 3 },
+      { type: "row-4", columns: 4 },
     ];
 
     this.elements = [
-      {
-        type: "heading",
-        label: "Encabezado",
-      },
-      {
-        type: "text",
-        label: "Texto",
-      },
-      {
-        type: "image",
-        label: "Imagen",
-      },
-      {
-        type: "button",
-        label: "Botón",
-      },
-      {
-        type: "table",
-        label: "Tabla",
-      },
-      {
-        type: "list",
-        label: "Lista",
-      },
-      {
-        type: "video",
-        label: "Video",
-      },
-      {
-        type: "divider",
-        label: "Divisor",
-      },
-      {
-        type: "spacer",
-        label: "Espacio",
-      },
-      {
-        type: "html",
-        label: "HTML",
-      },
+      { type: "heading" },
+      { type: "text" },
+      { type: "image" },
+      { type: "button" },
+      { type: "table" },
+      { type: "list" },
+      { type: "video" },
+      { type: "divider" },
+      { type: "spacer" },
+      { type: "html" },
     ];
+
+    // Listen for language changes
+    window.addEventListener("localeChanged", () => {
+      this.render();
+    });
+  }
+
+  renderMainSidebar() {
+    return `
+      <div class="tabs">
+        <button class="tab ${
+          this.currentTab === "principal" ? "active" : ""
+        }" data-tab="principal">
+          ${this.i18n.t("builder.sidebar.tabs.settings")}
+        </button>
+        <button class="tab ${
+          this.currentTab === "rows" ? "active" : ""
+        }" data-tab="rows">
+          ${this.i18n.t("builder.sidebar.tabs.rows")}
+        </button>
+        <button class="tab ${
+          this.currentTab === "elements" ? "active" : ""
+        }" data-tab="elements">
+          ${this.i18n.t("builder.sidebar.tabs.elements")}
+        </button>
+      </div>
+      ${
+        this.currentTab === "principal"
+          ? this.renderPrincipalTab()
+          : this.currentTab === "rows"
+          ? this.renderRowsTab()
+          : this.renderElementsTab()
+      }
+    `;
+  }
+
+  renderPrincipalTab() {
+    return `
+      <div class="section-header">
+        <h2>${this.i18n.t("builder.sidebar.principal.title")}</h2>
+        <p class="description">${this.i18n.t(
+          "builder.sidebar.principal.description"
+        )}</p>
+      </div>
+      <div class="tab-content">
+        <div class="form-group">
+          <label>${this.i18n.t("builder.settings.page.maxWidth")}</label>
+          <div class="input-group">
+            <input 
+              type="number" 
+              id="maxWidthInput"
+              min="320" 
+              max="2400" 
+              step="10"
+              value="${
+                parseInt(this.getCanvasGlobalSettings().maxWidth) || 1200
+              }"
+            />
+            <span class="input-addon">px</span>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label>${this.i18n.t("builder.editor.common.styles.spacing")}</label>
+          <div class="input-group">
+            <input 
+              type="number" 
+              id="paddingInput"
+              min="0" 
+              max="100" 
+              value="${parseInt(this.getCanvasGlobalSettings().padding) || 20}"
+            />
+            <span class="input-addon">px</span>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label>${this.i18n.t("builder.settings.page.background")}</label>
+          <input 
+            type="color" 
+            id="backgroundColorInput"
+            value="${
+              this.getCanvasGlobalSettings().backgroundColor || "#ffffff"
+            }"
+          />
+        </div>
+        
+        <div class="form-group">
+          <label>${this.i18n.t("builder.settings.page.font")}</label>
+          <select id="fontFamilySelect">
+            <option value="system-ui, -apple-system, sans-serif">System UI</option>
+            <option value="Arial, sans-serif">Arial</option>
+            <option value="Helvetica, sans-serif">Helvetica</option>
+            <option value="Georgia, serif">Georgia</option>
+          </select>
+        </div>
+      </div>
+    `;
+  }
+
+  renderRowsTab() {
+    const getColumnKey = (columns) => {
+      switch (columns) {
+        case 1:
+          return "oneColumn";
+        case 2:
+          return "twoColumns";
+        case 3:
+          return "threeColumns";
+        case 4:
+          return "fourColumns";
+        default:
+          return "oneColumn";
+      }
+    };
+
+    return `
+      <div class="tab-content">
+        <div class="elements-container">
+          ${this.rows
+            .map(
+              (row) => `
+              <div class="builder-element" data-type="${row.type}">
+                <div class="element-icon">
+                  <builder-icon name="${row.type}" size="24"></builder-icon>
+                </div>
+                <div class="element-label">${this.i18n.t(
+                  `builder.sidebar.rows.${getColumnKey(row.columns)}`
+                )}</div>
+              </div>
+            `
+            )
+            .join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  renderElementsTab() {
+    return `
+      <div class="tab-content">
+        <div class="elements-container">
+          ${this.elements
+            .map(
+              (element) => `
+            <div class="builder-element" data-type="${element.type}">
+              <div class="element-icon">
+                <builder-icon name="${element.type}" size="24"></builder-icon>
+              </div>
+              <div class="element-label">${this.i18n.t(
+                `builder.sidebar.elements.${element.type}`
+              )}</div>
+            </div>
+          `
+            )
+            .join("")}
+        </div>
+      </div>
+    `;
   }
 
   connectedCallback() {
@@ -146,109 +261,6 @@ class BuilderSidebar extends HTMLElement {
     });
   }
 
-  renderMainSidebar() {
-    return `
-      <div class="tabs">
-        <button class="tab ${
-          this.currentTab === "principal" ? "active" : ""
-        }" data-tab="principal">
-          Principal
-        </button>
-        <button class="tab ${
-          this.currentTab === "rows" ? "active" : ""
-        }" data-tab="rows">
-          Filas
-        </button>
-        <button class="tab ${
-          this.currentTab === "elements" ? "active" : ""
-        }" data-tab="elements">
-          Elementos
-        </button>
-      </div>
-      ${
-        this.currentTab === "principal"
-          ? this.renderPrincipalTab()
-          : this.currentTab === "rows"
-          ? this.renderRowsTab()
-          : this.renderElementsTab()
-      }
-    `;
-  }
-
-  renderPrincipalTab() {
-    return `
-      <div class="tab-content">
-        <div class="form-group">
-          <label>Ancho máximo</label>
-          <div class="input-group">
-            <input 
-              type="number" 
-              id="maxWidthInput"
-              min="320" 
-              max="2400" 
-              step="10"
-              value="${
-                parseInt(this.getCanvasGlobalSettings().maxWidth) || 1200
-              }"
-            />
-            <span class="input-addon">px</span>
-          </div>
-        </div>
-        
-        <div class="form-group">
-          <label>Padding</label>
-          <div class="input-group">
-            <input 
-              type="number" 
-              id="paddingInput"
-              min="0" 
-              max="100" 
-              value="${parseInt(this.getCanvasGlobalSettings().padding) || 20}"
-            />
-            <span class="input-addon">px</span>
-          </div>
-        </div>
-        
-        <div class="form-group">
-          <label>Color de fondo</label>
-          <input 
-            type="color" 
-            id="backgroundColorInput"
-            value="${
-              this.getCanvasGlobalSettings().backgroundColor || "#ffffff"
-            }"
-          />
-        </div>
-        
-        <div class="form-group">
-          <label>Fuente principal</label>
-          <select id="fontFamilySelect">
-            <option value="system-ui, -apple-system, sans-serif" ${
-              this.getCanvasGlobalSettings().fontFamily.includes("system-ui")
-                ? "selected"
-                : ""
-            }>System UI</option>
-            <option value="Arial, sans-serif" ${
-              this.getCanvasGlobalSettings().fontFamily.includes("Arial")
-                ? "selected"
-                : ""
-            }>Arial</option>
-            <option value="Helvetica, sans-serif" ${
-              this.getCanvasGlobalSettings().fontFamily.includes("Helvetica")
-                ? "selected"
-                : ""
-            }>Helvetica</option>
-            <option value="Georgia, serif" ${
-              this.getCanvasGlobalSettings().fontFamily.includes("Georgia")
-                ? "selected"
-                : ""
-            }>Georgia</option>
-          </select>
-        </div>
-      </div>
-    `;
-  }
-
   // Método para configurar los event listeners del tab principal
   setupPrincipalTabListeners() {
     const canvas = document.querySelector("builder-canvas");
@@ -287,48 +299,6 @@ class BuilderSidebar extends HTMLElement {
         fontFamily: e.target.value,
       });
     });
-  }
-
-  renderRowsTab() {
-    return `
-      <div class="tab-content">
-        <div class="elements-container">
-          ${this.rows
-            .map(
-              (row) => `
-            <div class="builder-element" data-type="${row.type}">
-              <div class="element-icon">
-                <builder-icon name="${row.type}" size="24"></builder-icon>
-              </div>
-              <div class="element-label">${row.label}</div>
-            </div>
-          `
-            )
-            .join("")}
-        </div>
-      </div>
-    `;
-  }
-
-  renderElementsTab() {
-    return `
-      <div class="tab-content">
-        <div class="elements-container">
-          ${this.elements
-            .map(
-              (element) => `
-            <div class="builder-element" data-type="${element.type}">
-              <div class="element-icon">
-                <builder-icon name="${element.type}" size="24"></builder-icon>
-              </div>
-              <div class="element-label">${element.label}</div>
-            </div>
-          `
-            )
-            .join("")}
-        </div>
-      </div>
-    `;
   }
 
   render() {
@@ -466,10 +436,14 @@ class BuilderSidebar extends HTMLElement {
           height: 2px;
           background: #2196F3;
         }
+
+        .section-header {
+          padding: 0 1rem;
+        }
   
         .tab-content {
           flex: 1;
-          padding: 1.5rem;
+          padding: 1rem;
           overflow-y: auto;
         }
   
