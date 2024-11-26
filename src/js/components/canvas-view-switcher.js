@@ -13,16 +13,12 @@ class CanvasViewSwitcher extends HTMLElement {
     this.history = new History();
     this._isUndoRedoOperation = false;
     this.i18n = I18n.getInstance();
-    console.log("Current locale:", this.i18n.currentLocale);
-    console.log("Translation test:", this.i18n.t("canvas.views.design"));
     window.builderEvents = window.builderEvents || new EventTarget();
 
-    // Bind methods
     this.handleHistoryChange = this.handleHistoryChange.bind(this);
     this.handleUndo = this.handleUndo.bind(this);
     this.handleRedo = this.handleRedo.bind(this);
 
-    // Almacenar referencia al listener
     this.contentChangedListener = (event) => {
       const newContent = event.detail;
       if (!this._isUndoRedoOperation) {
@@ -40,22 +36,30 @@ class CanvasViewSwitcher extends HTMLElement {
 
   attributeChangedCallback(name, oldValue, newValue) {
     if (name === "pageId" && newValue !== oldValue) {
-      console.log("CanvasViewSwitcher: pageId changed to", newValue);
-      const canvas = this.shadowRoot.querySelector("builder-canvas");
-      if (canvas) {
-        canvas.setAttribute("pageId", newValue);
+      console.log("Canvas: pageId attribute changed to", newValue);
+      const switcher = this.shadowRoot.querySelector("canvas-view-switcher");
+      if (switcher) {
+        console.log("Canvas: Setting pageId on switcher:", newValue);
+        switcher.setAttribute("pageId", newValue);
       }
+    }
+  }
+
+  connectCanvas() {
+    this.canvas = this.shadowRoot.querySelector("builder-canvas");
+    if (this.canvas) {
+      this.canvas.addEventListener(
+        "contentChanged",
+        this.contentChangedListener
+      );
     }
   }
 
   connectedCallback() {
     this.setupInitialDOM();
+    this.connectCanvas(); // Agregar esta línea
     this.setupEventListeners();
     this.updateActiveView();
-
-    window.addEventListener("localeChanged", () => {
-      this.setupInitialDOM();
-    });
 
     window.builderEvents.addEventListener(
       "historyChange",
@@ -70,11 +74,6 @@ class CanvasViewSwitcher extends HTMLElement {
         this.contentChangedListener
       );
     }
-
-    window.removeEventListener("localeChanged", () => {
-      this.setupInitialDOM();
-    });
-
     window.builderEvents.removeEventListener(
       "historyChange",
       this.handleHistoryChange
@@ -102,33 +101,17 @@ class CanvasViewSwitcher extends HTMLElement {
 
   handleUndo() {
     console.log("Undo requested");
-    const previousState = this.history.undo();
-    if (previousState && this.canvas) {
-      this._isUndoRedoOperation = true;
-      try {
-        console.log("Applying undo state:", previousState);
-        this.editorData = previousState;
-        this.canvas.setEditorData(previousState, true);
-        this.updateViews();
-      } finally {
-        this._isUndoRedoOperation = false;
-      }
+    const canvas = this.shadowRoot.querySelector("builder-canvas");
+    if (canvas) {
+      canvas.handleUndo();
     }
   }
 
   handleRedo() {
     console.log("Redo requested");
-    const nextState = this.history.redo();
-    if (nextState && this.canvas) {
-      this._isUndoRedoOperation = true;
-      try {
-        console.log("Applying redo state:", nextState);
-        this.editorData = nextState;
-        this.canvas.setEditorData(nextState, true);
-        this.updateViews();
-      } finally {
-        this._isUndoRedoOperation = false;
-      }
+    const canvas = this.shadowRoot.querySelector("builder-canvas");
+    if (canvas) {
+      canvas.handleRedo();
     }
   }
 
@@ -136,367 +119,305 @@ class CanvasViewSwitcher extends HTMLElement {
     const pageId = this.getAttribute("pageId");
     console.log("CanvasViewSwitcher: Setting up DOM with pageId:", pageId);
 
-    // Crear la estructura base del DOM
     this.shadowRoot.innerHTML = `
-        <style>
-          :host {
-            display: block;
-            height: 100%;
-            background: #fff;
+      <style>
+        :host {
+          display: block;
+          height: 100%;
+          background: #fff;
+        }
+
+        * {
+          box-sizing: border-box;
+        }
+
+        .view-container {
+          display: flex;
+          flex-direction: column;
+          height: 100%;
+        }
+
+        .view-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          background: #f5f5f5;
+          border-bottom: 1px solid #ddd;
+        }
+
+        .view-tabs {
+          display: flex;
+          flex: 1;
+        }
+
+        .view-tab {
+          padding: 1rem 2rem;
+          border: none;
+          background: none;
+          cursor: pointer;
+          color: #666;
+          font-size: 0.875rem;
+          position: relative;
+        }
+
+        .view-tab:hover {
+          color: #2196F3;
+        }
+
+        .view-tab.active {
+          color: #2196F3;
+          font-weight: 500;
+        }
+
+        .view-tab.active::after {
+          content: '';
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          height: 2px;
+          background: #2196F3;
+        }
+
+        .view-actions {
+          display: flex;
+          gap: 0.5rem;
+          padding: 0 1rem;
+        }
+
+        .view-actions button {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.5rem;
+          border: none;
+          background: none;
+          color: #666;
+          cursor: pointer;
+          border-radius: 4px;
+          transition: all 0.2s ease;
+          font-size: 0.875rem;
+        }
+
+        .view-actions button:hover:not(:disabled) {
+          background: rgba(33, 150, 243, 0.1);
+          color: #1976D2;
+        }
+
+        .view-actions button.active {
+          color: #2196F3;
+        }
+
+        .view-actions button:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .view-actions .copy-button,
+        .view-actions .download-button {
+          background: #2196F3;
+          color: white;
+          padding: 0.5rem 1rem;
+        }
+
+        .view-actions .copy-button:hover,
+        .view-actions .download-button:hover {
+          background: #1976D2;
+          color: white;
+        }
+
+        .view-content {
+          flex: 1;
+          overflow: auto;
+          position: relative;
+        }
+
+        .view {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          display: none;
+        }
+
+        .view.active {
+          display: block;
+        }
+
+        .design-view {
+          height: 100%;
+        }
+
+        .preview-view {
+          height: 100%;
+          padding: 2rem;
+          background: #f8f9fa;
+        }
+
+        .preview-frame {
+          width: 100%;
+          margin: 0 auto;
+          background: white;
+          min-height: 100vh;
+          box-shadow: 0 0 20px rgba(0,0,0,0.1);
+          transition: all 0.3s ease;
+        }
+
+        .preview-frame.mobile {
+          max-width: 480px;
+        }
+
+        .preview-frame.tablet {
+          max-width: 768px;
+        }
+
+        .preview-frame.desktop {
+          max-width: 1200px;
+        }
+
+        .code-view {
+          padding: 1rem;
+          background: #f8f9fa;
+          height: 100%;
+        }
+
+        .code-view pre {
+          margin: 0;
+          padding: 1rem;
+          background: white;
+          border-radius: 4px;
+          font-family: monospace;
+          font-size: 14px;
+          line-height: 1.5;
+          overflow: auto;
+        }
+
+        .notification {
+          position: fixed;
+          bottom: 1rem;
+          right: 1rem;
+          padding: 0.75rem 1rem;
+          background: #4CAF50;
+          color: white;
+          border-radius: 4px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+          animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
           }
-  
-          .view-container {
-            display: flex;
-            flex-direction: column;
-            height: 100%;
+          to {
+            transform: translateX(0);
+            opacity: 1;
           }
-  
-          .view-tabs {
-            display: flex;
-            background: #f5f5f5;
-            text-align: center;
-            font-size: 0.875rem;
-            font-weight: normal;
-          }
-  
-          .view-tab {
-            padding: 1rem 2rem;
-            cursor: pointer;
-            border: none;
-            background: none;
-            position: relative;
-            color: #666;
-            font-size: 0.875rem;
-          }
-  
-          .view-tab.active {
-            color: #2196F3;
-            font-weight: 500;
-          }
-  
-          .view-tab.active::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background: #2196F3;
-          }
-  
-          .view-content {
-            flex: 1;
-            overflow: auto;
-            position: relative;
-          }
-  
-          .view {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: none;
-            overflow: auto;
-          }
-  
-          .view.active {
-            display: block;
-          }
-  
-          .code-view {
-            padding: 1rem;
-            background: #f8f9fa;
-            font-family: monospace;
-            white-space: pre-wrap;
-            font-size: 14px;
-            line-height: 1.5;
-            height: 100%;
-            box-sizing: border-box;
-            position: relative;
-          }
-            
-          .design-view {
-            height: 100%;
-          }
-  
-          builder-canvas {
-            height: 100%;
-            display: block;
-          }
-  
-          .copy-button {
-            position: relative; /* Cambiar de absolute a relative */
-            padding: 0.5rem 1rem;
-            background: #2196F3;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-          }
-  
-          .copy-button:hover {
-            background: #1976D2;
-          }
+        }
+      </style>
 
-          .view-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: #f5f5f5;
-            border-bottom: 1px solid #ddd;
-          }
-
-          .view-tabs {
-            display: flex;
-            flex: 1;
-          }
-
-          .view-actions {
-            display: flex;
-            gap: 0.5rem;
-            justify-content: flex-end;
-            align-items: center;
-          }
-
-           .undo-button,
-.redo-button,
-.copy-button,
-.download-button,
-.device-button,
-.back-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem;
-  border: none;
-  background: none;
-  cursor: pointer;
-  color: #666;
-  border-radius: 4px;
-  transition: all 0.2s ease;
-}
-
-    .undo-button.active,
-    .redo-button.active {
-      opacity: 1;
-      cursor: pointer;
-      color: #2196F3;
-    }
-
-    .undo-button.active:hover,
-    .redo-button.active:hover {
-      background: rgba(33, 150, 243, 0.1);
-    }
-
-          .undo-button,
-.redo-button {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.5rem 1rem;
-  border: none;
-  background: none;
-  color: #666;
-  cursor: pointer;
-  font-size: 0.875rem;
-  border-radius: 4px;
-  transition: all 0.2s ease;
-}
-
-.undo-button:not(:disabled):hover,
-.redo-button:not(:disabled):hover {
-  background: rgba(0, 0, 0, 0.05);
-  color: #333;
-}
-
-.undo-button:disabled,
-.redo-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  pointer-events: none;
-}
-
-.undo-button:disabled:hover,
-.redo-button:disabled:hover {
-  background: none;
-  color: #666;
-}
-
-.button-icon {
-  font-size: 1.2em;
-  line-height: 1;
-}
-
-.undo-button:not(:disabled),
-.redo-button:not(:disabled) {
-  color: #2196F3;
-}
-
-.undo-button:not(:disabled):hover,
-.redo-button:not(:disabled):hover {
-  background: rgba(33, 150, 243, 0.1);
-  color: #1976D2;
-}
-
-.preview-view {
-        height: 100%;
-        overflow: auto;
-        background: #f8f9fa;
-        padding: 2rem;
-      }
-
-      .preview-frame {
-        width: 100%;
-        margin: 0 auto;
-        background: white;
-        min-height: 100vh;
-        box-shadow: 0 0 20px rgba(0,0,0,0.1);
-        transition: all 0.3s ease;
-      }
-
-      .preview-frame.mobile {
-        max-width: 480px;
-      }
-
-      .preview-frame.tablet {
-        max-width: 768px;
-      }
-
-      .preview-frame.desktop {
-        max-width: 1200px;
-      }
-
-      .preview-controls {
-        position: fixed;
-        top: 1rem;
-        right: 1rem;
-        display: flex;
-        gap: 0.5rem;
-        background: white;
-        padding: 0.5rem;
-        border-radius: 4px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      }
-
-      .device-button {
-        padding: 0.5rem;
-        border: none;
-        background: none;
-        cursor: pointer;
-        opacity: 0.5;
-        transition: all 0.2s ease;
-      }
-
-      .device-button:hover {
-        opacity: 0.8;
-      }
-
-      .device-button.active {
-        opacity: 1;
-        color: #2196F3;
-      }
-
-      .copy-button,
-      .download-button {
-        height: 36px;
-        padding: 0 1rem;
-        background: #2196F3;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 14px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.5rem;
-        transition: background-color 0.2s ease;
-      }
-
-      .copy-button:hover,
-      .download-button:hover {
-        background: #1976D2;
-      }
-        </style>
-  
-       <div class="view-container">
-      <div class="view-header">
-        <div class="view-tabs">
-<button class="view-tab active" data-view="design">${this.i18n.t(
-      "builder.canvas.views.design"
-    )}</button>
-<button class="view-tab" data-view="preview">${this.i18n.t(
-      "builder.canvas.views.preview"
-    )}</button>
-<button class="view-tab" data-view="html">${this.i18n.t(
-      "builder.canvas.views.html"
-    )}</button>
-<button class="view-tab" data-view="json">${this.i18n.t(
-      "builder.canvas.views.json"
-    )}</button>
-        </div>
-        <div class="view-actions">
-<button class="undo-button" disabled>
-  <builder-icon name="undo" size="20"></builder-icon>
-  <span>${this.i18n.t("builder.canvas.actions.undo")}</span>
-</button>
-<button class="redo-button" disabled>
-  <builder-icon name="redo" size="20"></builder-icon>
-  <span>${this.i18n.t("builder.canvas.actions.redo")}</span>
-</button>
-        </div>
-      </div>
-
-      <div class="view-content">
-        <div class="view design-view active">
-          <builder-canvas pageId="${pageId || ""}"></builder-canvas>
-        </div>
-
-        <div class="view preview-view">
-          <div class="preview-controls">
-            <button class="device-button active" data-device="desktop" title="Desktop">
-              🖥️
+      <div class="view-container">
+        <div class="view-header">
+          <div class="view-tabs">
+            <button class="view-tab ${
+              this.currentView === "design" ? "active" : ""
+            }" data-view="design">
+              ${this.i18n.t("builder.canvas.views.design")}
             </button>
-            <button class="device-button" data-device="tablet" title="Tablet">
-              📱
+            <button class="view-tab ${
+              this.currentView === "preview" ? "active" : ""
+            }" data-view="preview">
+              ${this.i18n.t("builder.canvas.views.preview")}
             </button>
-            <button class="device-button" data-device="mobile" title="Mobile">
-              📱
+            <button class="view-tab ${
+              this.currentView === "html" ? "active" : ""
+            }" data-view="html">
+              ${this.i18n.t("builder.canvas.views.html")}
+            </button>
+            <button class="view-tab ${
+              this.currentView === "json" ? "active" : ""
+            }" data-view="json">
+              ${this.i18n.t("builder.canvas.views.json")}
             </button>
           </div>
-          <div class="preview-frame desktop">
-            <div class="preview-content"></div>
-          </div>
-        </div>
-
-        <div class="view html-view code-view">
           <div class="view-actions">
-            <button class="copy-button" data-type="html">Copy HTML</button>
-            <button class="download-button" data-type="html">
-              <builder-icon name="download" size="20"></builder-icon><span>Download HTML</span>
-            </button>
+            ${
+              this.currentView === "design"
+                ? `
+              <button class="undo-button" disabled>
+                <builder-icon name="undo" size="20"></builder-icon>
+                <span>${this.i18n.t("builder.canvas.actions.undo")}</span>
+              </button>
+              <button class="redo-button" disabled>
+                <builder-icon name="redo" size="20"></builder-icon>
+                <span>${this.i18n.t("builder.canvas.actions.redo")}</span>
+              </button>
+            `
+                : this.currentView === "preview"
+                ? `
+              <button class="device-button active" data-device="desktop">
+                <builder-icon name="desktop" size="20"></builder-icon>
+              </button>
+              <button class="device-button" data-device="tablet">
+                <builder-icon name="tablet" size="20"></builder-icon>
+              </button>
+              <button class="device-button" data-device="mobile">
+                <builder-icon name="mobile" size="20"></builder-icon>
+              </button>
+            `
+                : this.currentView === "html"
+                ? `
+              <button class="copy-button" data-type="html">
+                <builder-icon name="copy" size="20"></builder-icon>
+                <span>${this.i18n.t("builder.canvas.actions.copyHtml")}</span>
+              </button>
+              <button class="download-button" data-type="html">
+                <builder-icon name="download" size="20"></builder-icon>
+                <span>${this.i18n.t(
+                  "builder.canvas.actions.downloadHtml"
+                )}</span>
+              </button>
+            `
+                : `
+              <button class="copy-button" data-type="json">
+                <builder-icon name="copy" size="20"></builder-icon>
+                <span>${this.i18n.t("builder.canvas.actions.copyJson")}</span>
+              </button>
+            `
+            }
           </div>
-          <pre class="html-content"></pre>
         </div>
 
-        <div class="view json-view code-view">
-          <button class="copy-button" data-type="json">Copy JSON</button>
-          <pre class="json-content"></pre>
+        <div class="view-content">
+          <div class="view design-view ${
+            this.currentView === "design" ? "active" : ""
+          }">
+            <builder-canvas pageId="${pageId || ""}"></builder-canvas>
+          </div>
+
+          <div class="view preview-view ${
+            this.currentView === "preview" ? "active" : ""
+          }">
+            <div class="preview-frame desktop">
+              <div class="preview-content"></div>
+            </div>
+          </div>
+
+          <div class="view code-view html-view ${
+            this.currentView === "html" ? "active" : ""
+          }">
+            <pre class="html-content"></pre>
+          </div>
+
+          <div class="view code-view json-view ${
+            this.currentView === "json" ? "active" : ""
+          }">
+            <pre class="json-content"></pre>
+          </div>
         </div>
       </div>
-    </div>
-      `;
-
-    // Guardar referencia al canvas
-    this.canvas = this.shadowRoot.querySelector("builder-canvas");
-
-    // Activar la vista inicial
-    this.updateActiveView();
+    `;
   }
 
   updateActiveView() {
@@ -518,14 +439,21 @@ class CanvasViewSwitcher extends HTMLElement {
       }
     });
 
+    // Re-configurar el DOM para actualizar los botones
+    this.setupInitialDOM();
+    this.connectCanvas();
+
     // Actualizar contenido si es necesario
     if (this.currentView !== "design") {
       this.updateViews();
     }
+
+    // Re-configurar event listeners
+    this.setupEventListeners();
   }
 
   setupEventListeners() {
-    // Event listeners para las pestañas
+    // Configurar tabs
     this.shadowRoot.querySelectorAll(".view-tab").forEach((tab) => {
       tab.addEventListener("click", () => {
         this.currentView = tab.dataset.view;
@@ -533,104 +461,74 @@ class CanvasViewSwitcher extends HTMLElement {
       });
     });
 
-    // Event listeners para undo/redo
-    const undoButton = this.shadowRoot.querySelector(".undo-button");
-    const redoButton = this.shadowRoot.querySelector(".redo-button");
-
-    if (undoButton) {
-      undoButton.addEventListener("click", () => {
-        console.log("View Switcher - Undo clicked");
-        if (this.canvas && typeof this.canvas.handleUndo === "function") {
-          this.canvas._isUndoRedoOperation = true;
-          try {
-            this.canvas.handleUndo();
-          } finally {
-            this.canvas._isUndoRedoOperation = false;
-          }
-        } else {
-          console.warn("Canvas or handleUndo not available");
-        }
-      });
-    }
-
-    if (redoButton) {
-      redoButton.addEventListener("click", () => {
-        console.log("View Switcher - Redo clicked");
-        if (this.canvas && typeof this.canvas.handleRedo === "function") {
-          this.canvas._isUndoRedoOperation = true;
-          try {
-            this.canvas.handleRedo();
-          } finally {
-            this.canvas._isUndoRedoOperation = false;
-          }
-        } else {
-          console.warn("Canvas or handleRedo not available");
-        }
-      });
-    }
-
-    window.builderEvents.addEventListener("historyChange", (event) => {
-      const { canUndo, canRedo } = event.detail;
-      console.log("View Switcher - History change:", { canUndo, canRedo });
+    // Configurar botones según la vista
+    if (this.currentView === "design") {
+      const undoButton = this.shadowRoot.querySelector(".undo-button");
+      const redoButton = this.shadowRoot.querySelector(".redo-button");
 
       if (undoButton) {
-        undoButton.disabled = !canUndo;
-        undoButton.classList.toggle("active", canUndo);
+        undoButton.addEventListener("click", this.handleUndo.bind(this));
       }
-
       if (redoButton) {
-        redoButton.disabled = !canRedo;
-        redoButton.classList.toggle("active", canRedo);
+        redoButton.addEventListener("click", this.handleRedo.bind(this));
       }
-    });
-
-    // Escuchar cambios en el canvas
-    if (this.canvas) {
-      this.canvas.addEventListener("contentChanged", (event) => {
-        console.log("Content changed event received");
-        this.editorData = event.detail;
-
-        // Solo guardar en el historial si no estamos en una operación undo/redo
-        if (!this._isUndoRedoOperation && !this.canvas._isUndoRedoOperation) {
-          console.log("Pushing new state to history");
-          this.history.pushState(this.editorData);
-        }
-
-        this.updateViews();
+    } else if (this.currentView === "preview") {
+      this.shadowRoot.querySelectorAll(".device-button").forEach((button) => {
+        button.addEventListener("click", () => {
+          this.shadowRoot.querySelectorAll(".device-button").forEach((btn) => {
+            btn.classList.remove("active");
+          });
+          button.classList.add("active");
+          const previewFrame = this.shadowRoot.querySelector(".preview-frame");
+          previewFrame.className = "preview-frame " + button.dataset.device;
+        });
       });
+    } else if (this.currentView === "html" || this.currentView === "json") {
+      const copyButton = this.shadowRoot.querySelector(".copy-button");
+      const downloadButton = this.shadowRoot.querySelector(".download-button");
+
+      if (copyButton) {
+        copyButton.addEventListener("click", () => {
+          const content =
+            this.currentView === "html"
+              ? this.generateHTML()
+              : JSON.stringify(this.editorData || {}, null, 2);
+          navigator.clipboard.writeText(content).then(() => {
+            this.showNotification(
+              this.i18n.t("builder.canvas.confirmations.copySuccess")
+            );
+          });
+        });
+      }
+
+      if (downloadButton && this.currentView === "html") {
+        downloadButton.addEventListener("click", () => {
+          const html = this.generateHTML();
+          ExportUtils.downloadHTML(html);
+          this.showNotification(
+            this.i18n.t("builder.canvas.confirmations.downloadStart")
+          );
+        });
+      }
     }
 
-    // Escuchar cambios en el historial
+    // Siempre escuchar cambios en el historial para actualizar undo/redo
     window.builderEvents.addEventListener(
       "historyChange",
-      this.handleHistoryChange.bind(this)
+      this.handleHistoryChange
     );
+  }
 
-    this.shadowRoot.querySelectorAll(".device-button").forEach((button) => {
-      button.addEventListener("click", () => {
-        // Remover clase active de todos los botones
-        this.shadowRoot.querySelectorAll(".device-button").forEach((btn) => {
-          btn.classList.remove("active");
-        });
+  showNotification(message) {
+    const notification = document.createElement("div");
+    notification.className = "notification";
+    notification.textContent = message;
 
-        // Agregar clase active al botón clickeado
-        button.classList.add("active");
+    this.shadowRoot.appendChild(notification);
 
-        // Actualizar clase del preview-frame
-        const previewFrame = this.shadowRoot.querySelector(".preview-frame");
-        previewFrame.className = "preview-frame " + button.dataset.device;
-      });
-    });
-
-    const downloadButton = this.shadowRoot.querySelector(".download-button");
-    if (downloadButton) {
-      downloadButton.addEventListener("click", () => {
-        if (this.editorData) {
-          const html = ExportUtils.generateExportableHTML(this.editorData);
-          ExportUtils.downloadHTML(html);
-        }
-      });
-    }
+    setTimeout(() => {
+      notification.remove();
+    }, 3000);
   }
 
   generatePreviewHTML(data) {
