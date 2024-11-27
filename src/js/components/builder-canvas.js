@@ -5,7 +5,12 @@ import { I18n } from "../utils/i18n.js";
 class BuilderCanvas extends HTMLElement {
   constructor() {
     super();
+    console.log("🏗️ Canvas - Constructor started"); // Nuevo log
     this.attachShadow({ mode: "open" });
+
+    window.builderEvents = window.builderEvents || new EventTarget();
+    console.log("🏗️ Canvas - EventTarget initialized"); // Nuevo log
+
     this.i18n = I18n.getInstance();
     this.rows = [];
     this.globalSettings = {
@@ -21,13 +26,84 @@ class BuilderCanvas extends HTMLElement {
     this._isUndoRedoOperation = false;
     this.history = new History();
 
-    // Asegurarnos de que tenemos builderEvents
-    window.builderEvents = window.builderEvents || new EventTarget();
+    console.log("🏗️ Canvas - Initial state set"); // Nuevo log
 
-    // Escuchar cambios en el historial
-    window.builderEvents.addEventListener("historyChange", (event) => {
-      const { canUndo, canRedo } = event.detail;
-      console.log("Builder Canvas - History change:", { canUndo, canRedo });
+    // Event listeners
+    window.builderEvents.addEventListener("globalSettingsUpdated", (e) => {
+      console.log("🎯 Canvas - Received globalSettingsUpdated:", e.detail);
+
+      // 1. Actualizar el modelo interno
+      const { settings } = e.detail;
+      this.globalSettings = {
+        ...this.globalSettings,
+        ...settings,
+      };
+
+      // 2. Actualizar el DOM
+      const pageWrapper = this.shadowRoot.querySelector(".page-wrapper");
+      if (pageWrapper) {
+        Object.entries(settings).forEach(([key, value]) => {
+          const cssKey = key.replace(/([A-Z])/g, "-$1").toLowerCase();
+          pageWrapper.style[cssKey] = value;
+        });
+      }
+
+      // 3. Forzar un re-render y emitir cambio
+      this.render();
+      this.emitContentChanged();
+
+      console.log("🎯 Canvas - Updated globalSettings:", this.globalSettings);
+    });
+    window.builderEvents.addEventListener(
+      "historyChange",
+      this.handleHistoryChange.bind(this)
+    );
+
+    console.log("🏗️ Canvas - Constructor finished"); // Nuevo log
+  }
+
+  handleGlobalSettingsUpdate(e) {
+    console.log("🎯 Canvas - Received globalSettingsUpdate event", e.detail);
+    const pageWrapper = this.shadowRoot.querySelector(".page-wrapper");
+    console.log("🎯 Canvas - Current page wrapper:", pageWrapper);
+
+    if (pageWrapper) {
+      const { settings } = e.detail;
+      Object.entries(settings).forEach(([key, value]) => {
+        const cssKey = key.replace(/([A-Z])/g, "-$1").toLowerCase();
+        pageWrapper.style[cssKey] = value;
+      });
+      console.log("🎯 Canvas - Updated styles:", pageWrapper.style);
+    }
+  }
+
+  handleHistoryChange(event) {
+    const { canUndo, canRedo } = event.detail;
+    console.log("🎯 Canvas - History change:", { canUndo, canRedo });
+  }
+
+  connectedCallback() {
+    console.log("🔄 Canvas - Connected, pageId:", this.getAttribute("pageId")); // Nuevo log
+
+    const pageId = this.getAttribute("pageId");
+    if (pageId) {
+      this.pageId = pageId;
+      const savedData = CanvasStorage.loadCanvas(pageId);
+      if (savedData?.rows) {
+        this.rows = JSON.parse(JSON.stringify(savedData.rows));
+        this.history.pushState(this.getEditorData());
+      }
+    }
+
+    console.log("🔄 Canvas - About to render"); // Nuevo log
+    this.render();
+
+    console.log("🔄 Canvas - Post render setup"); // Nuevo log
+    requestAnimationFrame(() => {
+      this.setupDropZone();
+      this.setupEventListeners();
+      this.setupElementSelection();
+      console.log("🔄 Canvas - Setup complete"); // Nuevo log
     });
   }
 
@@ -119,31 +195,6 @@ class BuilderCanvas extends HTMLElement {
     }
   }
 
-  // En builder-canvas.js, actualizar el connectedCallback
-  connectedCallback() {
-    console.log("Canvas connected");
-    const pageId = this.getAttribute("pageId");
-    if (pageId) {
-      this.pageId = pageId;
-      const savedData = CanvasStorage.loadCanvas(pageId);
-      if (savedData?.rows) {
-        this.rows = JSON.parse(JSON.stringify(savedData.rows));
-        this.history.pushState(this.getEditorData());
-      }
-    }
-    this.render();
-
-    requestAnimationFrame(() => {
-      this.setupDropZone();
-      this.setupEventListeners();
-      this.setupElementSelection();
-    });
-
-    window.addEventListener("localeChanged", () => {
-      this.render();
-    });
-  }
-
   // En builder-canvas.js, en el método emitContentChanged:
 
   emitContentChanged(suppressEvent = false) {
@@ -192,10 +243,34 @@ class BuilderCanvas extends HTMLElement {
     this.render(suppressEvent);
   }
 
-  // También debemos agregar el método getEditorData si no existe
+  // En builder-canvas.js, eliminar el método updateGlobalStyles y modificar updateGlobalSettings
   updateGlobalSettings(settings) {
+    console.log("Builder Canvas - Updating global settings:", settings);
+
+    // Actualizar el modelo
     this.globalSettings = { ...this.globalSettings, ...settings };
+
+    // Emitir evento de cambio
+    const event = new CustomEvent("globalSettingsUpdated", {
+      detail: { settings },
+      bubbles: true,
+      composed: true,
+    });
+    console.log(
+      "Builder Canvas - Dispatching globalSettingsUpdated event:",
+      event
+    );
+    console.log(
+      "Builder Canvas - Dispatching globalSettingsUpdated event:",
+      event
+    );
+
+    this.dispatchEvent(event);
+
+    // Re-renderizar todo el canvas
     this.render();
+
+    // Emitir evento de cambio de contenido
     this.emitContentChanged();
   }
 
@@ -1157,15 +1232,53 @@ class BuilderCanvas extends HTMLElement {
     return null;
   }
 
-  render(suppressEvent = false) {
-    console.log("Rendering canvas, current pageId:", this.pageId);
-    console.log("Rendering canvas, rows:", this.rows);
-    console.log("Render params:", {
-      suppressEvent,
-      isUndoRedo: this._isUndoRedoOperation,
-    });
+  updateGlobalStyles(styles) {
+    console.log("Updating global styles:", styles);
+    this.globalSettings = { ...this.globalSettings, ...styles };
 
+    const pageWrapper = this.shadowRoot.querySelector(".page-wrapper");
+    if (pageWrapper) {
+      Object.entries(this.globalSettings).forEach(([key, value]) => {
+        const cssKey = key.replace(/([A-Z])/g, "-$1").toLowerCase();
+        if (key === "maxWidth") {
+          pageWrapper.style.maxWidth = value.toString().includes("px")
+            ? value
+            : `${value}px`;
+        } else if (key === "padding") {
+          pageWrapper.style.padding = value.toString().includes("px")
+            ? value
+            : `${value}px`;
+        } else if (key === "backgroundColor") {
+          pageWrapper.style.backgroundColor = value;
+        } else if (key === "fontFamily") {
+          pageWrapper.style.fontFamily = value;
+        }
+      });
+    }
+
+    // Emitir el evento de cambio
+    this.emitContentChanged();
+  }
+
+  render(suppressEvent = false) {
+    console.log("🎨 Canvas - Render started", {
+      pageId: this.pageId,
+      rows: this.rows.length,
+      globalSettings: this.globalSettings,
+    });
     const currentPageId = this.pageId;
+
+    // Definir los estilos del wrapper de manera explícita
+    const pageWrapperStyles = `
+      max-width: ${this.globalSettings.maxWidth};
+      padding: ${this.globalSettings.padding};
+      background-color: ${this.globalSettings.backgroundColor};
+      font-family: ${this.globalSettings.fontFamily};
+      margin: 0 auto;
+      box-shadow: 0 0 20px rgba(0,0,0,0.1);
+      border-radius: 8px;
+      min-height: 100vh;
+    `;
 
     // Aquí está todo el HTML necesario
     this.shadowRoot.innerHTML = `
@@ -1198,7 +1311,6 @@ class BuilderCanvas extends HTMLElement {
   
           .canvas-dropzone {
             min-height: 100%;
-            background: white;
             border-radius: 8px;
             transition: all 0.3s ease;
           }
@@ -1220,7 +1332,6 @@ class BuilderCanvas extends HTMLElement {
           .builder-row {
             position: relative;
             margin: 1rem 0;
-            background: white;
             border: 1px solid #eee;
             border-radius: 4px;
             transition: transform 0.2s ease;
@@ -1441,33 +1552,44 @@ class BuilderCanvas extends HTMLElement {
             outline: 2px solid #2196F3;
             box-shadow: 0 0 0 4px rgba(33, 150, 243, 0.2);
           }
+
+          .canvas-container {
+      height: 100%;
+      min-height: 100%;
+      padding: 2rem;
+      background: #f5f5f5;
+    }
+
+    .page-wrapper {
+      max-width: ${this.globalSettings.maxWidth};
+      padding: ${this.globalSettings.padding};
+      margin: 0 auto;
+      background-color: ${this.globalSettings.backgroundColor};
+      font-family: ${this.globalSettings.fontFamily};
+      box-shadow: 0 0 20px rgba(0,0,0,0.1);
+      border-radius: 8px;
+    }
         </style>
 
         
   
        <div class="canvas-container">
-        <div class="debug-info" style="position: fixed; top: 10px; right: 10px; background: #f0f0f0; padding: 10px; border-radius: 4px; font-family: monospace;">
-          PageID: ${currentPageId || "null"}<br>
-          Rows: ${this.rows.length}
-        </div>
-        
-        <div class="canvas-wrapper">
-          <div class="canvas-dropzone ${
-            this.rows.length === 0 ? "empty" : ""
-          }" data-page-id="${currentPageId || ""}">
-            ${
-              this.rows.length === 0
-                ? `<div class="empty-message">
-      <h3>${this.i18n.t("builder.canvas.empty.title")}</h3>
-      <p>${this.i18n.t("builder.canvas.empty.subtitle")}</p>
-      <p><small>ID: ${currentPageId || "null"}</small></p>
-    </div>`
-                : this.rows.map((row) => this.renderRow(row)).join("")
-            }
-          </div>
+      <div class="page-wrapper" style="${pageWrapperStyles}">
+        <div class="canvas-dropzone ${
+          this.rows.length === 0 ? "empty" : ""
+        }" data-page-id="${currentPageId || ""}">
+          ${
+            this.rows.length === 0
+              ? `<div class="empty-message">
+                <h3>${this.i18n.t("builder.canvas.empty.title")}</h3>
+                <p>${this.i18n.t("builder.canvas.empty.subtitle")}</p>
+                <p><small>ID: ${currentPageId || "null"}</small></p>
+              </div>`
+              : this.rows.map((row) => this.renderRow(row)).join("")
+          }
         </div>
       </div>
-    `;
+    </div>`;
 
     // Configurar todo de manera asíncrona para asegurar que el DOM esté listo
     requestAnimationFrame(() => {
@@ -1480,6 +1602,8 @@ class BuilderCanvas extends HTMLElement {
         this.emitContentChanged(suppressEvent);
       }
     });
+
+    console.log("🎨 Canvas - Render finished");
   }
 }
 

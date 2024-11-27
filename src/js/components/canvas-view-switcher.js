@@ -15,19 +15,11 @@ class CanvasViewSwitcher extends HTMLElement {
     this.i18n = I18n.getInstance();
     window.builderEvents = window.builderEvents || new EventTarget();
 
+    // Bind the event handlers
     this.handleHistoryChange = this.handleHistoryChange.bind(this);
     this.handleUndo = this.handleUndo.bind(this);
     this.handleRedo = this.handleRedo.bind(this);
-
-    this.contentChangedListener = (event) => {
-      const newContent = event.detail;
-      if (!this._isUndoRedoOperation) {
-        console.log("Pushing new state to history:", newContent);
-        this.history.pushState(newContent);
-      }
-      this.editorData = newContent;
-      this.updateViews();
-    };
+    this.contentChangedListener = this.contentChangedListener.bind(this);
   }
 
   static get observedAttributes() {
@@ -609,8 +601,31 @@ class CanvasViewSwitcher extends HTMLElement {
       .join("\n");
   }
 
-  // Actualizar el método updateViews para incluir la vista previa
+  contentChangedListener(event) {
+    console.log(
+      "🔄 ViewSwitcher - Content changed event received",
+      event.detail
+    );
+
+    // Actualizar el estado interno
+    this.editorData = event.detail;
+
+    // Actualizar todas las vistas
+    this.updateViews();
+
+    // Si no estamos en una operación undo/redo, actualizar el historial
+    if (!this._isUndoRedoOperation) {
+      console.log(
+        "🔄 ViewSwitcher - Pushing new state to history:",
+        this.editorData
+      );
+      this.history.pushState(this.editorData);
+    }
+  }
+
   updateViews() {
+    console.log("🔄 ViewSwitcher - Updating views with data:", this.editorData);
+
     if (!this.editorData) return;
 
     const htmlContent = this.shadowRoot.querySelector(".html-content");
@@ -618,15 +633,19 @@ class CanvasViewSwitcher extends HTMLElement {
     const previewContent = this.shadowRoot.querySelector(".preview-content");
 
     if (htmlContent) {
-      htmlContent.textContent = this.generateHTML();
+      const html = this.generateHTML();
+      htmlContent.textContent = html;
+      console.log("🔄 ViewSwitcher - Updated HTML view");
     }
 
     if (jsonContent) {
       jsonContent.textContent = JSON.stringify(this.editorData || {}, null, 2);
+      console.log("🔄 ViewSwitcher - Updated JSON view");
     }
 
     if (previewContent) {
       previewContent.innerHTML = this.generatePreviewHTML(this.editorData);
+      console.log("🔄 ViewSwitcher - Updated preview");
     }
   }
 

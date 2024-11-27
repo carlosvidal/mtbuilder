@@ -191,7 +191,17 @@ class BuilderSidebar extends HTMLElement {
   }
 
   connectedCallback() {
+    console.log("🏁 Sidebar - Connected"); // Nuevo log
     this.setupElementSelection();
+
+    // Forzar la configuración de los listeners si estamos en la pestaña principal
+    if (this.currentTab === "principal") {
+      console.log("🏁 Sidebar - Principal tab active, setting up listeners"); // Nuevo log
+      requestAnimationFrame(() => {
+        this.setupPrincipalTabListeners();
+      });
+    }
+
     this.render();
   }
 
@@ -262,46 +272,81 @@ class BuilderSidebar extends HTMLElement {
   }
 
   // Método para configurar los event listeners del tab principal
+  // En builder-sidebar.js, modificar setupPrincipalTabListeners
   setupPrincipalTabListeners() {
-    const canvas = document.querySelector("builder-canvas");
-    if (!canvas) return;
+    console.log("🔧 Sidebar - Setting up principal tab listeners");
 
-    // Ancho máximo
     const maxWidthInput = this.shadowRoot.getElementById("maxWidthInput");
-    maxWidthInput?.addEventListener("change", (e) => {
-      canvas.updateGlobalSettings({
-        maxWidth: `${e.target.value}px`,
+    console.log("🔧 Sidebar - maxWidthInput element:", maxWidthInput);
+
+    if (maxWidthInput) {
+      maxWidthInput.addEventListener("input", (e) => {
+        console.log("📝 Sidebar - maxWidth changed:", e.target.value);
+        window.builderEvents.dispatchEvent(
+          new CustomEvent("globalSettingsUpdated", {
+            detail: {
+              settings: {
+                maxWidth: `${e.target.value}px`,
+              },
+            },
+          })
+        );
       });
-    });
+    }
 
     // Padding
     const paddingInput = this.shadowRoot.getElementById("paddingInput");
-    paddingInput?.addEventListener("change", (e) => {
-      canvas.updateGlobalSettings({
-        padding: `${e.target.value}px`,
+    if (paddingInput) {
+      paddingInput.addEventListener("input", (e) => {
+        window.builderEvents.dispatchEvent(
+          new CustomEvent("globalSettingsUpdated", {
+            detail: {
+              settings: {
+                padding: `${e.target.value}px`,
+              },
+            },
+          })
+        );
       });
-    });
+    }
 
     // Color de fondo
     const backgroundColorInput = this.shadowRoot.getElementById(
       "backgroundColorInput"
     );
-    backgroundColorInput?.addEventListener("input", (e) => {
-      canvas.updateGlobalSettings({
-        backgroundColor: e.target.value,
+    if (backgroundColorInput) {
+      backgroundColorInput.addEventListener("input", (e) => {
+        window.builderEvents.dispatchEvent(
+          new CustomEvent("globalSettingsUpdated", {
+            detail: {
+              settings: {
+                backgroundColor: e.target.value,
+              },
+            },
+          })
+        );
       });
-    });
+    }
 
-    // Fuente principal
+    // Fuente
     const fontFamilySelect = this.shadowRoot.getElementById("fontFamilySelect");
-    fontFamilySelect?.addEventListener("change", (e) => {
-      canvas.updateGlobalSettings({
-        fontFamily: e.target.value,
+    if (fontFamilySelect) {
+      fontFamilySelect.addEventListener("change", (e) => {
+        window.builderEvents.dispatchEvent(
+          new CustomEvent("globalSettingsUpdated", {
+            detail: {
+              settings: {
+                fontFamily: e.target.value,
+              },
+            },
+          })
+        );
       });
-    });
+    }
   }
 
   render() {
+    console.log("🎨 Sidebar - Rendering, current tab:", this.currentTab);
     this.shadowRoot.innerHTML = `
       ${this.getStyles()}
       <div class="sidebar-container">
