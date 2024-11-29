@@ -69,7 +69,7 @@ export class I18n {
       // Detectar base URL dinámica
       const basePath =
         window.location.hostname === "carlosvidal.github.io"
-          ? "/nombre-del-repositorio" // Cambia esto por tu nombre de repositorio
+          ? "/mtbuilder" // Cambia esto por tu nombre de repositorio
           : "";
       const path = `${basePath}/src/locales/${normalizedLocale}.json`;
 
