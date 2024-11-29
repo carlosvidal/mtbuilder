@@ -10,6 +10,7 @@ import { TableEditor } from "./editors/table-editor.js";
 import { ListEditor } from "./editors/list-editor.js";
 import { VideoEditor } from "./editors/video-editor.js";
 import { SpacerEditor } from "./editors/spacer-editor.js";
+import { RowEditor } from "./editors/row-editor.js";
 
 export function registerEditors() {
   const editors = {
@@ -24,6 +25,7 @@ export function registerEditors() {
     "list-editor": ListEditor,
     "video-editor": VideoEditor,
     "spacer-editor": SpacerEditor,
+    "row-editor": RowEditor,
   };
 
   Object.entries(editors).forEach(([name, EditorClass]) => {

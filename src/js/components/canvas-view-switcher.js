@@ -526,89 +526,112 @@ class CanvasViewSwitcher extends HTMLElement {
   generatePreviewHTML(data) {
     if (!data || !data.rows) return "";
 
-    return data.rows
-      .map((row) => {
-        const columns = row.columns
-          .map((column) => {
-            const elements = column.elements
-              .map((element) => {
-                const styleString = Object.entries(element.styles || {})
-                  .map(([key, value]) => {
-                    const cssKey = key.replace(/([A-Z])/g, "-$1").toLowerCase();
-                    return `${cssKey}: ${value}`;
-                  })
-                  .join("; ");
+    const globalStyles = data.globalSettings || {};
+    const wrapperStyles = `
+      max-width: ${globalStyles.maxWidth || "1200px"};
+      padding: ${globalStyles.padding || "20px"};
+      background-color: ${globalStyles.backgroundColor || "#ffffff"};
+      font-family: ${
+        globalStyles.fontFamily || "system-ui, -apple-system, sans-serif"
+      };
+      margin: 0 auto;
+    `;
 
-                switch (element.type) {
-                  case "text":
-                    return `<div style="${styleString}">${
-                      element.content || ""
-                    }</div>`;
-                  case "heading":
-                    const tag = element.tag || "h2";
-                    return `<${tag} style="${styleString}">${
-                      element.content || ""
-                    }</${tag}>`;
-                  case "image":
-                    const imgAttrs = Object.entries(element.attributes || {})
-                      .map(([key, value]) => `${key}="${value}"`)
-                      .join(" ");
-                    return `<img ${imgAttrs} style="${styleString}">`;
-                  case "button":
-                    const href = element.attributes?.href
-                      ? `onclick="window.open('${element.attributes.href}', '_blank')"`
-                      : "";
-                    return `<button ${href} style="${styleString}">${
-                      element.content || ""
-                    }</button>`;
-                  case "divider":
-                    return `<hr style="${styleString}">`;
-                  case "html":
-                    return element.content || "";
-                  case "video":
-                    const videoAttrs = Object.entries(element.attributes || {})
-                      .map(([key, value]) => `${key}="${value}"`)
-                      .join(" ");
-                    return `<div class="video-container" style="${styleString}">
+    return `
+      <div class="page-wrapper" style="${wrapperStyles}">
+        ${data.rows
+          .map((row) => {
+            const columns = row.columns
+              .map((column) => {
+                const elements = column.elements
+                  .map((element) => {
+                    const styleString = Object.entries(element.styles || {})
+                      .map(([key, value]) => {
+                        const cssKey = key
+                          .replace(/([A-Z])/g, "-$1")
+                          .toLowerCase();
+                        return `${cssKey}: ${value}`;
+                      })
+                      .join("; ");
+
+                    switch (element.type) {
+                      case "text":
+                        return `<div style="${styleString}">${
+                          element.content || ""
+                        }</div>`;
+                      case "heading":
+                        const tag = element.tag || "h2";
+                        return `<${tag} style="${styleString}">${
+                          element.content || ""
+                        }</${tag}>`;
+                      case "image":
+                        const imgAttrs = Object.entries(
+                          element.attributes || {}
+                        )
+                          .map(([key, value]) => `${key}="${value}"`)
+                          .join(" ");
+                        return `<img ${imgAttrs} style="${styleString}">`;
+                      case "button":
+                        const href = element.attributes?.href
+                          ? `onclick="window.open('${element.attributes.href}', '_blank')"`
+                          : "";
+                        return `<button ${href} style="${styleString}">${
+                          element.content || ""
+                        }</button>`;
+                      case "divider":
+                        return `<hr style="${styleString}">`;
+                      case "html":
+                        return element.content || "";
+                      case "video":
+                        const videoAttrs = Object.entries(
+                          element.attributes || {}
+                        )
+                          .map(([key, value]) => `${key}="${value}"`)
+                          .join(" ");
+                        return `<div class="video-container" style="${styleString}">
                 <iframe ${videoAttrs}></iframe>
               </div>`;
-                  case "spacer":
-                    return `<div style="${styleString}"></div>`;
-                  case "list":
-                    const items = element.content
-                      .split("\n")
-                      .map((item) => `<li>${item.trim()}</li>`)
-                      .join("");
-                    return `<${element.tag} style="${styleString}">${items}</${element.tag}>`;
-                  case "table":
-                    return `<div class="table-container" style="overflow-x: auto;">
+                      case "spacer":
+                        return `<div style="${styleString}"></div>`;
+                      case "list":
+                        const items = element.content
+                          .split("\n")
+                          .map((item) => `<li>${item.trim()}</li>`)
+                          .join("");
+                        return `<${element.tag} style="${styleString}">${items}</${element.tag}>`;
+                      case "table":
+                        return `<div class="table-container" style="overflow-x: auto;">
                 <table style="${styleString}">${element.content}</table>
               </div>`;
-                  default:
-                    return `<div style="${styleString}">${
-                      element.content || ""
-                    }</div>`;
-                }
+                      default:
+                        return `<div style="${styleString}">${
+                          element.content || ""
+                        }</div>`;
+                    }
+                  })
+                  .join("\n");
+
+                return `<div class="column" style="flex: 1; padding: 10px;">${elements}</div>`;
               })
               .join("\n");
 
-            return `<div class="column" style="flex: 1; padding: 10px;">${elements}</div>`;
+            return `<div class="row" style="display: flex; margin: 0 auto; max-width: 1200px;">${columns}</div>`;
           })
-          .join("\n");
-
-        return `<div class="row" style="display: flex; margin: 0 auto; max-width: 1200px;">${columns}</div>`;
-      })
-      .join("\n");
+          .join("\n")}
+      </div>
+      `;
   }
-
   contentChangedListener(event) {
     console.log(
       "🔄 ViewSwitcher - Content changed event received",
       event.detail
     );
 
-    // Actualizar el estado interno
-    this.editorData = event.detail;
+    // Asegurarse de que los globalSettings se incluyan en editorData
+    this.editorData = {
+      ...event.detail,
+      globalSettings: event.detail.globalSettings || {},
+    };
 
     // Actualizar todas las vistas
     this.updateViews();
@@ -654,6 +677,8 @@ class CanvasViewSwitcher extends HTMLElement {
       return "<!-- No content -->";
     }
 
+    const globalStyles = this.editorData.globalSettings || {};
+
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -668,9 +693,19 @@ class CanvasViewSwitcher extends HTMLElement {
       }
       
       body {
-        font-family: system-ui, -apple-system, sans-serif;
+        font-family: ${
+          globalStyles.fontFamily || "system-ui, -apple-system, sans-serif"
+        };
         line-height: 1.5;
         color: #333;
+        background-color: #f5f5f5;
+      }
+      
+      .page-wrapper {
+        max-width: ${globalStyles.maxWidth || "1200px"};
+        padding: ${globalStyles.padding || "20px"};
+        background-color: ${globalStyles.backgroundColor || "#ffffff"};
+        margin: 0 auto;
       }
       
       img {

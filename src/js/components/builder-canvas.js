@@ -58,8 +58,19 @@ class BuilderCanvas extends HTMLElement {
       "historyChange",
       this.handleHistoryChange.bind(this)
     );
+    window.builderEvents.addEventListener("rowDeselected", () => {
+      this.rows.forEach((row) => (row.selected = false));
+      this.render();
+    });
 
     console.log("🏗️ Canvas - Constructor finished"); // Nuevo log
+  }
+
+  setupRowEvents() {
+    window.builderEvents.addEventListener(
+      "rowUpdated",
+      this.handleRowUpdated.bind(this)
+    );
   }
 
   handleGlobalSettingsUpdate(e) {
@@ -74,6 +85,10 @@ class BuilderCanvas extends HTMLElement {
         pageWrapper.style[cssKey] = value;
       });
       console.log("🎯 Canvas - Updated styles:", pageWrapper.style);
+
+      // Añadir esta parte
+      this.globalSettings = { ...this.globalSettings, ...settings };
+      this.emitContentChanged(); // Para guardar los cambios
     }
   }
 
@@ -83,30 +98,34 @@ class BuilderCanvas extends HTMLElement {
   }
 
   connectedCallback() {
-    console.log("🔄 Canvas - Connected, pageId:", this.getAttribute("pageId")); // Nuevo log
-
     const pageId = this.getAttribute("pageId");
     if (pageId) {
       this.pageId = pageId;
       const savedData = CanvasStorage.loadCanvas(pageId);
-      if (savedData?.rows) {
-        this.rows = JSON.parse(JSON.stringify(savedData.rows));
+      if (savedData) {
+        if (savedData.rows) {
+          this.rows = JSON.parse(JSON.stringify(savedData.rows));
+        }
+        if (savedData.globalSettings) {
+          this.globalSettings = savedData.globalSettings;
+        }
         this.history.pushState(this.getEditorData());
       }
     }
 
-    console.log("🔄 Canvas - About to render"); // Nuevo log
     this.render();
-
-    console.log("🔄 Canvas - Post render setup"); // Nuevo log
+    // Removemos suppressEvent que no está definido
     requestAnimationFrame(() => {
       this.setupDropZone();
       this.setupEventListeners();
       this.setupElementSelection();
-      console.log("🔄 Canvas - Setup complete"); // Nuevo log
+
+      // Solo emitir eventos de cambio si no es una operación undo/redo
+      if (!this._isUndoRedoOperation) {
+        this.emitContentChanged();
+      }
     });
   }
-
   static get observedAttributes() {
     return ["pageId"];
   }
@@ -114,19 +133,20 @@ class BuilderCanvas extends HTMLElement {
   attributeChangedCallback(name, oldValue, newValue) {
     if (name === "pageId" && newValue && newValue !== oldValue) {
       console.log("Canvas: pageId attribute changed to", newValue);
-      // Actualizar propiedad interna
       this.pageId = newValue;
 
-      // Cargar datos inmediatamente
       const savedData = CanvasStorage.loadCanvas(newValue);
       console.log("Canvas attributeChangedCallback - loaded data:", savedData);
 
-      if (savedData?.rows) {
-        this.rows = JSON.parse(JSON.stringify(savedData.rows));
-        console.log(
-          "Canvas attributeChangedCallback - setting rows:",
-          this.rows
-        );
+      // Aquí falta cargar los globalSettings
+      if (savedData) {
+        if (savedData.rows) {
+          this.rows = JSON.parse(JSON.stringify(savedData.rows));
+        }
+        if (savedData.globalSettings) {
+          // Añadir esta parte
+          this.globalSettings = savedData.globalSettings;
+        }
         this.render();
       }
     }
@@ -167,20 +187,20 @@ class BuilderCanvas extends HTMLElement {
     console.log("Setting pageId:", pageId);
     this.pageId = pageId;
 
-    // Cargar datos del storage
     const savedData = CanvasStorage.loadCanvas(pageId);
     console.log("Loaded canvas data:", savedData);
 
-    if (savedData?.rows) {
-      // Hacer una copia profunda de los datos
-      this.rows = JSON.parse(JSON.stringify(savedData.rows));
-      console.log("Setting rows from storage:", this.rows);
-
-      // Forzar una actualización
+    if (savedData) {
+      if (savedData.rows) {
+        this.rows = JSON.parse(JSON.stringify(savedData.rows));
+      }
+      if (savedData.globalSettings) {
+        // Añadir esta parte
+        this.globalSettings = savedData.globalSettings;
+      }
       this.render();
     }
 
-    // Emitir evento de cambio de contenido
     this.emitContentChanged();
   }
 
@@ -189,8 +209,13 @@ class BuilderCanvas extends HTMLElement {
     if (!this.pageId) return;
 
     const savedData = CanvasStorage.loadCanvas(this.pageId);
-    if (savedData?.rows) {
-      this.rows = savedData.rows;
+    if (savedData) {
+      if (savedData.rows) {
+        this.rows = savedData.rows;
+      }
+      if (savedData.globalSettings) {
+        this.globalSettings = savedData.globalSettings;
+      }
       this.render();
     }
   }
@@ -198,7 +223,10 @@ class BuilderCanvas extends HTMLElement {
   // En builder-canvas.js, en el método emitContentChanged:
 
   emitContentChanged(suppressEvent = false) {
-    const data = this.getEditorData();
+    const data = {
+      ...this.getEditorData(),
+      globalSettings: this.globalSettings, // Asegurarnos de que se incluyan los globalSettings
+    };
     console.log("Builder Canvas - Emitting content changed:", {
       suppressEvent,
       isUndoRedo: this._isUndoRedoOperation,
@@ -297,9 +325,21 @@ class BuilderCanvas extends HTMLElement {
   }
 
   setupEventListeners() {
+    // Remover listeners anteriores clonando solo el canvas-dropzone
+    const canvas = this.shadowRoot.querySelector(".canvas-dropzone");
+    if (canvas) {
+      const newCanvas = canvas.cloneNode(false); // cambiar a false
+      while (canvas.firstChild) {
+        newCanvas.appendChild(canvas.firstChild);
+      }
+      canvas.parentNode.replaceChild(newCanvas, canvas);
+    }
+
+    // Configurar nuevos listeners
     this.setupRowControls();
     this.setupElementDragging();
     this.setupElementDeletion();
+    this.setupDropZone(); // Mover aquí la configuración del dropzone
   }
 
   setupElementDeletion() {
@@ -443,45 +483,32 @@ class BuilderCanvas extends HTMLElement {
     const canvas = this.shadowRoot.querySelector(".canvas-dropzone");
     if (!canvas) return;
 
-    // En lugar de clonar, limpiamos los listeners antiguos
-    const newCanvas = canvas;
-    const clone = canvas.cloneNode(false);
-    while (canvas.firstChild) {
-      clone.appendChild(canvas.firstChild);
-    }
-    canvas.parentNode.replaceChild(clone, canvas);
-
-    // Añadimos los listeners al nuevo canvas
-    clone.addEventListener("dragover", (e) => {
+    canvas.ondragover = (e) => {
       e.preventDefault();
       e.stopPropagation();
 
-      // Si estamos arrastrando una fila existente, no mostramos dragover
       if (this.draggedRow) return;
 
-      const dropTarget = e.target.closest(".column-dropzone") || clone;
+      const dropTarget = e.target.closest(".column-dropzone") || canvas;
       this.removeAllDragoverClasses();
       dropTarget.classList.add("dragover");
-    });
+    };
 
-    clone.addEventListener("dragleave", (e) => {
+    canvas.ondragleave = (e) => {
       const relatedTarget = e.relatedTarget;
-      if (!relatedTarget || !clone.contains(relatedTarget)) {
+      if (!relatedTarget || !canvas.contains(relatedTarget)) {
         this.removeAllDragoverClasses();
       }
-    });
+    };
 
-    clone.addEventListener("drop", (e) => {
+    canvas.ondrop = (e) => {
       e.preventDefault();
       e.stopPropagation();
 
-      // Si estamos reordenando una fila existente, no procesamos el drop aquí
       if (this.draggedRow) return;
 
       const elementType = e.dataTransfer.getData("application/builder-element");
-      const dropTarget = e.target.closest(".column-dropzone") || clone;
-
-      console.log("Drop event - Element type:", elementType);
+      const dropTarget = e.target.closest(".column-dropzone") || canvas;
 
       this.removeAllDragoverClasses();
 
@@ -496,7 +523,7 @@ class BuilderCanvas extends HTMLElement {
           this.addElementToColumn(rowId, columnId, elementType);
         }
       }
-    });
+    };
   }
 
   handleRowDrop(e) {
@@ -511,109 +538,53 @@ class BuilderCanvas extends HTMLElement {
 
   setupRowControls() {
     const rows = this.shadowRoot.querySelectorAll(".builder-row");
-    const canvas = this.shadowRoot.querySelector(".canvas-dropzone");
 
     rows.forEach((row) => {
-      const moveButton = row.querySelector(".row-move");
-      moveButton.draggable = true;
+      // Configurar botón de duplicar
+      const duplicateButton = row.querySelector(".row-duplicate");
+      if (duplicateButton) {
+        duplicateButton.onclick = (e) => {
+          e.stopPropagation();
+          this.duplicateRow(row.dataset.id);
+        };
+      }
 
-      moveButton.addEventListener("dragstart", (e) => {
-        e.stopPropagation();
-        const rowElement = e.target.closest(".builder-row");
-        rowElement.classList.add("row-dragging");
-        this.draggedRow = rowElement;
-
-        // Crear indicador de drop
-        if (!this.dropIndicator) {
-          this.dropIndicator = document.createElement("div");
-          this.dropIndicator.className = "drop-indicator";
-          canvas.appendChild(this.dropIndicator);
-        }
-
-        e.dataTransfer.setDragImage(rowElement, 0, 20);
-        e.dataTransfer.effectAllowed = "move";
-      });
-
-      moveButton.addEventListener("dragend", () => {
-        if (this.draggedRow) {
-          this.draggedRow.classList.remove("row-dragging");
-          this.draggedRow = null;
-        }
-        if (this.dropIndicator) {
-          this.dropIndicator.remove();
-          this.dropIndicator = null;
-        }
-      });
-
+      // Configurar botón de eliminar
       const deleteButton = row.querySelector(".row-delete");
-      deleteButton.addEventListener("click", () => {
-        this.rows = this.rows.filter((r) => r.id !== row.dataset.id);
-        this.render();
-      });
-    });
-
-    // Configurar el canvas para el reordenamiento de filas
-    canvas.addEventListener("dragover", (e) => {
-      e.preventDefault();
-      if (!this.draggedRow) return;
-
-      const rows = [
-        ...this.shadowRoot.querySelectorAll(".builder-row:not(.row-dragging)"),
-      ];
-      if (rows.length === 0) return;
-
-      const mouseY = e.clientY;
-      const canvasRect = canvas.getBoundingClientRect();
-
-      let insertBefore = null;
-      for (const row of rows) {
-        const rect = row.getBoundingClientRect();
-        const rowMiddle = rect.top + rect.height / 2;
-
-        if (mouseY < rowMiddle) {
-          insertBefore = row;
-          break;
-        }
+      if (deleteButton) {
+        deleteButton.onclick = (e) => {
+          e.stopPropagation();
+          if (confirm(this.i18n.t("common.confirmation.delete"))) {
+            this.deleteRow(row.dataset.id);
+          }
+        };
       }
 
-      // Actualizar posición del indicador
-      if (this.dropIndicator) {
-        if (!insertBefore) {
-          const lastRow = rows[rows.length - 1];
-          const rect = lastRow.getBoundingClientRect();
-          this.dropIndicator.style.top = `${rect.bottom - canvasRect.top}px`;
-        } else {
-          const rect = insertBefore.getBoundingClientRect();
-          this.dropIndicator.style.top = `${rect.top - canvasRect.top}px`;
-        }
+      // Configurar botón de añadir
+      const addButton = row.querySelector(".row-add-button");
+      if (addButton) {
+        addButton.onclick = (e) => {
+          e.stopPropagation();
+          this.addRowAfter(row.dataset.id);
+        };
       }
 
-      this.insertBeforeRow = insertBefore;
-    });
-
-    canvas.addEventListener("drop", (e) => {
-      e.preventDefault();
-      if (!this.draggedRow || !canvas.contains(e.target)) return;
-
-      const draggedRowId = this.draggedRow.dataset.id;
-      const draggedRowData = this.rows.find((r) => r.id === draggedRowId);
-
-      if (!draggedRowData) return;
-
-      // Remover la fila de su posición actual
-      this.rows = this.rows.filter((r) => r.id !== draggedRowId);
-
-      // Insertar en la nueva posición
-      if (this.insertBeforeRow) {
-        const insertIndex = this.rows.findIndex(
-          (r) => r.id === this.insertBeforeRow.dataset.id
-        );
-        this.rows.splice(insertIndex, 0, draggedRowData);
-      } else {
-        this.rows.push(draggedRowData);
+      // Configurar botón de mover
+      const moveButton = row.querySelector(".row-move");
+      if (moveButton) {
+        moveButton.draggable = true;
+        moveButton.ondragstart = (e) => {
+          e.stopPropagation();
+          this.draggedRow = row;
+          row.classList.add("row-dragging");
+        };
+        moveButton.ondragend = () => {
+          if (this.draggedRow) {
+            this.draggedRow.classList.remove("row-dragging");
+            this.draggedRow = null;
+          }
+        };
       }
-
-      this.render();
     });
   }
 
@@ -757,10 +728,15 @@ class BuilderCanvas extends HTMLElement {
 
   addRow(rowType) {
     console.log("Adding row:", rowType);
+    if (!rowType.startsWith("row-")) return;
+
     const columns = parseInt(rowType.split("-")[1]);
+    if (isNaN(columns) || columns < 1 || columns > 4) return;
+
     const rowConfig = {
       id: `row-${Date.now()}`,
       type: rowType,
+      styles: {},
       columns: Array(columns)
         .fill()
         .map(() => ({
@@ -771,14 +747,44 @@ class BuilderCanvas extends HTMLElement {
 
     this.rows.push(rowConfig);
     this.render();
-
-    // Re-configurar los eventos después de añadir una fila
-    requestAnimationFrame(() => {
-      this.setupDropZone();
-      this.setupEventListeners();
-    });
-
     this.emitContentChanged();
+  }
+
+  // Modificar duplicateRow de manera similar
+  duplicateRow(rowId) {
+    const sourceRow = this.rows.find((row) => row.id === rowId);
+    if (!sourceRow) return;
+
+    // Crear un nuevo ID único para la fila
+    const newRowId = `row-${Date.now()}-${Math.random()
+      .toString(36)
+      .substr(2, 9)}`;
+
+    // Crear una copia profunda de la fila con nuevos IDs
+    const newRow = {
+      id: newRowId,
+      type: sourceRow.type,
+      styles: JSON.parse(JSON.stringify(sourceRow.styles || {})),
+      columns: sourceRow.columns.map((col) => ({
+        id: `column-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        elements: col.elements.map((element) => ({
+          ...element,
+          id: `element-${Date.now()}-${Math.random()
+            .toString(36)
+            .substr(2, 9)}`,
+        })),
+      })),
+    };
+
+    // Encontrar la posición correcta e insertar la nueva fila
+    const index = this.rows.findIndex((row) => row.id === rowId);
+    if (index !== -1) {
+      this.rows.splice(index + 1, 0, newRow);
+
+      // Actualizar el estado y renderizar
+      this.render();
+      this.emitContentChanged();
+    }
   }
 
   addElementToColumn(rowId, columnId, elementType) {
@@ -1053,39 +1059,134 @@ class BuilderCanvas extends HTMLElement {
   }
 
   renderRow(row) {
+    const styles = Object.entries(row.styles || {})
+      .map(
+        ([key, value]) =>
+          `${key.replace(/([A-Z])/g, "-$1").toLowerCase()}: ${value}`
+      )
+      .join(";");
+
     return `
-        <div class="builder-row" data-id="${row.id}">
-          <div class="row-controls">
-            <button class="row-move">↕</button>
-            <button class="row-delete">×</button>
-          </div>
-          <div class="row-content" style="grid-template-columns: repeat(${
-            row.columns.length
-          }, 1fr)">
-            ${row.columns
-              .map(
-                (column) => `
-              <div class="builder-column" data-id="${column.id}">
-                <div class="column-dropzone">
-                  ${
-                    column.elements.length === 0
-                      ? `<div class="empty-column">
+      <div class="builder-row ${row.selected ? "selected" : ""}" 
+           data-id="${row.id}" 
+           style="${styles}">
+        <div class="row-controls">
+          <button class="row-move" title="Mover fila">
+            <builder-icon name="move" size="16"></builder-icon>
+          </button>
+          <button class="row-duplicate" title="Duplicar fila">
+            <builder-icon name="copy" size="16"></builder-icon>
+          </button>
+          <button class="row-delete" title="Eliminar fila">
+            <builder-icon name="delete" size="16"></builder-icon>
+          </button>
+        </div>
+        <button class="row-add-button" title="Añadir fila">
+          <builder-icon name="plus" size="16"></builder-icon>
+        </button>
+        <div class="row-content" style="grid-template-columns: repeat(${
+          row.columns.length
+        }, 1fr)">
+          ${row.columns
+            .map(
+              (column) => `
+            <div class="builder-column" data-id="${column.id}">
+              <div class="column-dropzone">
+                ${
+                  column.elements.length === 0
+                    ? `<div class="empty-column">
                       <span>${this.i18n.t(
                         "builder.canvas.dropzone.hint"
                       )}</span>
-                    </div>`
-                      : column.elements
-                          .map((element) => this.renderElement(element))
-                          .join("")
-                  }
-                </div>
+                     </div>`
+                    : column.elements
+                        .map((element) => this.renderElement(element))
+                        .join("")
+                }
               </div>
-            `
-              )
-              .join("")}
-          </div>
+            </div>
+          `
+            )
+            .join("")}
         </div>
-      `;
+      </div>
+    `;
+  }
+
+  setupRowEventListeners() {
+    // Desactivar event bubbling para evitar eventos duplicados
+    this.shadowRoot.querySelectorAll(".builder-row").forEach((row) => {
+      row.onclick = (e) => {
+        if (e.target === row || e.target.classList.contains("row-content")) {
+          // Solo si se hace clic directamente en la fila o en el contenido
+          e.stopPropagation();
+          this.selectRow(row.dataset.id);
+        }
+      };
+    });
+  }
+
+  selectRow(rowId) {
+    // Deselect any previously selected row
+    this.rows.forEach((row) => (row.selected = false));
+
+    const selectedRow = this.rows.find((row) => row.id === rowId);
+    if (selectedRow) {
+      selectedRow.selected = true;
+
+      // Emit event for row selection
+      window.builderEvents.dispatchEvent(
+        new CustomEvent("rowSelected", {
+          detail: selectedRow,
+        })
+      );
+    }
+
+    this.render();
+  }
+
+  deleteRow(rowId) {
+    if (confirm("¿Estás seguro de que deseas eliminar esta fila?")) {
+      this.rows = this.rows.filter((row) => row.id !== rowId);
+      this.render();
+      this.emitContentChanged();
+    }
+  }
+
+  addRowAfter(rowId) {
+    const index = this.rows.findIndex((row) => row.id === rowId);
+    if (index === -1) return;
+
+    const newRow = {
+      id: `row-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      type: "row-1",
+      styles: {},
+      columns: [
+        {
+          id: `column-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          elements: [],
+        },
+      ],
+    };
+
+    this.rows.splice(index + 1, 0, newRow);
+    this.render();
+    this.emitContentChanged();
+  }
+
+  handleRowUpdated(event) {
+    const { rowId, styles, columns } = event.detail;
+    const row = this.rows.find((r) => r.id === rowId);
+
+    if (row) {
+      row.styles = styles;
+      if (columns && columns.length !== row.columns.length) {
+        row.columns = columns;
+      }
+
+      this.render();
+      this.emitContentChanged();
+    }
   }
 
   setupElementSelection() {
@@ -1329,88 +1430,109 @@ class BuilderCanvas extends HTMLElement {
           }
   
           /* Estilos de filas */
-          .builder-row {
-            position: relative;
-            margin: 1rem 0;
-            border: 1px solid #eee;
-            border-radius: 4px;
-            transition: transform 0.2s ease;
-          }
-  
-          .builder-row:hover {
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-          }
-  
-          .builder-row.row-dragging {
-            opacity: 0.5;
-            border: 2px dashed #2196F3;
-            pointer-events: none;
-          }
+.builder-row {
+  position: relative;
+  margin: 1rem 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
 
-          .builder-row:not(.row-dragging) {
-            transform: translate3d(0, 0, 0);
-          }
-  
-          /* Controles de fila */
-          .row-controls {
-            position: absolute;
-            top: -1.5rem;
-            right: 0;
-            opacity: 0;
-            transition: opacity 0.2s ease;
-            display: flex;
-            gap: 0.5rem;
-            z-index: 10;
-            pointer-events: auto;
-          }
-  
-          .builder-row:hover .row-controls {
-            opacity: 1;
-          }
-  
-          .row-controls button {
-            padding: 0.25rem 0.5rem;
-            border: none;
-            background: #666;
-            color: white;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.875rem;
-          }
-  
-          .row-controls button:hover {
-            background: #333;
-          }
+.builder-row:hover {
+  border-color: #e0e0e0;
+}
 
-          .row-move {
-            cursor: move;
-          }
-  
-          .row-content {
-            display: grid;
-            gap: 1rem;
-            padding: 1rem;
-          }
-  
-          /* Estilos de columna */
-          .builder-column {
-            min-height: 100px;
-          }
-  
-          .column-dropzone {
-            position: relative;
-            height: 100%;
-            min-height: 100px;
-            border: 1px dashed #ddd;
-            border-radius: 4px;
-            transition: all 0.2s ease;
-          }
-  
-          .column-dropzone.dragover {
-            background: #f8f9fa;
-            border-color: #2196F3;
-            box-shadow: inset 0 0 0 2px #2196F3;
-          }
+.builder-row.selected {
+  border: 2px solid #2196F3;
+  box-shadow: 0 0 0 4px rgba(33, 150, 243, 0.1);
+}
+
+.row-controls {
+  position: absolute;
+  top: -2rem;
+  right: 0;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  display: flex;
+  gap: 0.5rem;
+  z-index: 10;
+  background: white;
+  padding: 0.25rem;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.builder-row:hover .row-controls {
+  opacity: 1;
+}
+
+.row-controls button {
+  padding: 0.25rem 0.5rem;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+  color: #666;
+}
+
+.row-controls button:hover {
+  background: #f5f5f5;
+  border-color: #ccc;
+  color: #333;
+}
+
+.row-add-button {
+  position: absolute;
+  bottom: -1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  background: #2196F3;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 20;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.builder-row:hover .row-add-button {
+  opacity: 1;
+}
+
+.row-add-button:hover {
+  background: #1976D2;
+  transform: translateX(-50%) scale(1.1);
+}
+
+.row-content {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.column-dropzone {
+  min-height: 50px;
+  border: 1px dashed #ddd;
+  border-radius: 4px;
+  padding: 1rem;
+  transition: all 0.2s ease;
+}
+
+.column-dropzone.dragover {
+  background: #f8f9fa;
+  border-color: #2196F3;
+}
 
           .column-dropzone::after {
             content: "";
@@ -1593,8 +1715,7 @@ class BuilderCanvas extends HTMLElement {
 
     // Configurar todo de manera asíncrona para asegurar que el DOM esté listo
     requestAnimationFrame(() => {
-      this.setupDropZone();
-      this.setupEventListeners();
+      this.setupEventListeners(); // Esto configurará todos los listeners necesarios
       this.setupElementSelection();
 
       // Solo emitir eventos de cambio si no es una operación undo/redo y no está suprimido

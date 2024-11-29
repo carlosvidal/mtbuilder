@@ -34,6 +34,9 @@ class BuilderSidebar extends HTMLElement {
     window.addEventListener("localeChanged", () => {
       this.render();
     });
+
+    this.showingRowEditor = false;
+    this.selectedRow = null;
   }
 
   renderMainSidebar() {
@@ -56,12 +59,31 @@ class BuilderSidebar extends HTMLElement {
         </button>
       </div>
       ${
-        this.currentTab === "principal"
+        this.showingRowEditor
+          ? this.renderRowEditor()
+          : this.currentTab === "principal"
           ? this.renderPrincipalTab()
           : this.currentTab === "rows"
           ? this.renderRowsTab()
           : this.renderElementsTab()
       }
+    `;
+  }
+
+  renderRowEditor() {
+    return `
+      <div class="editor-container">
+        <div class="editor-header">
+          <button class="back-button" id="backButton">
+            <builder-icon name="back" size="24"></builder-icon>
+            <span>Back</span>
+          </button>
+          <h3 class="editor-title">Editar Fila</h3>
+        </div>
+        <div class="editor-content">
+          <row-editor></row-editor>
+        </div>
+      </div>
     `;
   }
 
@@ -203,6 +225,23 @@ class BuilderSidebar extends HTMLElement {
     }
 
     this.render();
+    this.setupRowSelection();
+  }
+
+  setupRowSelection() {
+    window.builderEvents.addEventListener("rowSelected", (e) => {
+      console.log("Row selected:", e.detail);
+      this.selectedRow = e.detail;
+      this.showingRowEditor = true;
+      this.showingEditor = false; // Asegurarse de que no se muestre el editor de elementos
+      this.render();
+    });
+
+    window.builderEvents.addEventListener("rowDeselected", () => {
+      this.selectedRow = null;
+      this.showingRowEditor = false;
+      this.render();
+    });
   }
 
   disconnectedCallback() {
@@ -346,61 +385,34 @@ class BuilderSidebar extends HTMLElement {
   }
 
   render() {
-    console.log("🎨 Sidebar - Rendering, current tab:", this.currentTab);
+    console.log("🎨 Sidebar - Rendering", {
+      showingEditor: this.showingEditor,
+      showingRowEditor: this.showingRowEditor,
+    });
+
     this.shadowRoot.innerHTML = `
       ${this.getStyles()}
       <div class="sidebar-container">
         ${
           this.showingEditor
-            ? `
-          <div class="editor-container">
-            <div class="editor-header">
-              <button class="back-button" id="backButton">
-                <builder-icon name="back" size="24"></builder-icon>
-                <span>Back</span>
-              </button>
-              <h3 class="editor-title">Edit ${
-                this.selectedElement?.type || "Element"
-              }</h3>
-            </div>
-            <div class="editor-content">
-              <element-editor></element-editor>
-            </div>
-          </div>
-        `
+            ? this.renderElementEditor()
+            : this.showingRowEditor
+            ? this.renderRowEditor()
             : this.renderMainSidebar()
         }
       </div>
     `;
 
-    if (this.showingEditor) {
-      requestAnimationFrame(() => {
-        const editor = this.shadowRoot.querySelector("element-editor");
-        const backButton = this.shadowRoot.getElementById("backButton");
-
-        if (editor && this.selectedElement) {
-          // Asegurarse de que el elemento personalizado esté definido antes de usarlo
-          if (customElements.get("element-editor")) {
-            editor.setElement(this.selectedElement);
-          } else {
-            console.error("element-editor custom element is not defined");
-          }
-        }
-
-        if (backButton) {
-          backButton.addEventListener("click", () => {
-            this.showingEditor = false;
-            this.selectedElement = null;
-            this.render();
-            this.setupTabListeners();
-            this.setupDragAndDrop();
-          });
-        }
-      });
-    } else {
-      this.setupTabListeners();
-      this.setupDragAndDrop();
-    }
+    requestAnimationFrame(() => {
+      if (this.showingEditor) {
+        this.setupElementEditor();
+      } else if (this.showingRowEditor) {
+        this.setupRowEditor();
+      } else {
+        this.setupTabListeners();
+        this.setupDragAndDrop();
+      }
+    });
   }
 
   getCanvasGlobalSettings() {
@@ -421,6 +433,62 @@ class BuilderSidebar extends HTMLElement {
         fontFamily: "system-ui, -apple-system, sans-serif",
       }
     );
+  }
+
+  renderElementEditor() {
+    return `
+      <div class="editor-container">
+        <div class="editor-header">
+          <button class="back-button" id="backButton">
+            <builder-icon name="back" size="24"></builder-icon>
+            <span>Back</span>
+          </button>
+          <h3 class="editor-title">Edit ${
+            this.selectedElement?.type || "Element"
+          }</h3>
+        </div>
+        <div class="editor-content">
+          <element-editor></element-editor>
+        </div>
+      </div>
+    `;
+  }
+
+  setupRowEditor() {
+    const rowEditor = this.shadowRoot.querySelector("row-editor");
+    const backButton = this.shadowRoot.querySelector("#backButton");
+
+    if (rowEditor && this.selectedRow) {
+      rowEditor.setRow(this.selectedRow);
+    }
+
+    if (backButton) {
+      backButton.onclick = () => {
+        this.showingRowEditor = false;
+        this.selectedRow = null;
+        window.builderEvents.dispatchEvent(new CustomEvent("rowDeselected"));
+        this.render();
+      };
+    }
+  }
+
+  setupElementEditor() {
+    const editor = this.shadowRoot.querySelector("element-editor");
+    const backButton = this.shadowRoot.querySelector("#backButton");
+
+    if (editor && this.selectedElement) {
+      editor.setElement(this.selectedElement);
+    }
+
+    if (backButton) {
+      backButton.onclick = () => {
+        this.showingEditor = false;
+        this.selectedElement = null;
+        this.render();
+        this.setupTabListeners();
+        this.setupDragAndDrop();
+      };
+    }
   }
 
   getStyles() {
