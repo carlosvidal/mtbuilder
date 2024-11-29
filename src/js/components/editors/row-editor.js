@@ -3,8 +3,7 @@ import { BaseElementEditor } from "./base-element-editor.js";
 
 export class RowEditor extends BaseElementEditor {
   constructor() {
-    super();
-    this.attachShadow({ mode: "open" });
+    super(); // Esto ya maneja la creación del shadow root en la clase base
     this.currentRow = null;
   }
 
@@ -202,12 +201,16 @@ export class RowEditor extends BaseElementEditor {
   }
 
   emitUpdateEvent() {
+    if (!this.currentRow) return;
+
+    // Emitir el evento una sola vez al bus global de eventos
     window.builderEvents.dispatchEvent(
       new CustomEvent("rowUpdated", {
         detail: {
           rowId: this.currentRow.id,
           styles: this.currentRow.styles,
           columns: this.currentRow.columns,
+          type: this.currentRow.type,
         },
       })
     );

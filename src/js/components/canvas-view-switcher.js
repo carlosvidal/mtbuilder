@@ -20,6 +20,11 @@ class CanvasViewSwitcher extends HTMLElement {
     this.handleUndo = this.handleUndo.bind(this);
     this.handleRedo = this.handleRedo.bind(this);
     this.contentChangedListener = this.contentChangedListener.bind(this);
+
+    window.builderEvents.addEventListener("contentChanged", (event) => {
+      this.editorData = event.detail;
+      this.updateViews();
+    });
   }
 
   static get observedAttributes() {
@@ -40,10 +45,20 @@ class CanvasViewSwitcher extends HTMLElement {
   connectCanvas() {
     this.canvas = this.shadowRoot.querySelector("builder-canvas");
     if (this.canvas) {
+      this.canvas.removeEventListener(
+        "contentChanged",
+        this.contentChangedListener
+      );
       this.canvas.addEventListener(
         "contentChanged",
         this.contentChangedListener
       );
+
+      // Agregar escucha de eventos globales
+      window.builderEvents.addEventListener("contentChanged", (event) => {
+        this.editorData = event.detail;
+        this.updateViews();
+      });
     }
   }
 
@@ -631,9 +646,10 @@ class CanvasViewSwitcher extends HTMLElement {
     this.editorData = {
       ...event.detail,
       globalSettings: event.detail.globalSettings || {},
+      rows: event.detail.rows || [],
     };
 
-    // Actualizar todas las vistas
+    // Actualizar todas las vistas inmediatamente
     this.updateViews();
 
     // Si no estamos en una operación undo/redo, actualizar el historial

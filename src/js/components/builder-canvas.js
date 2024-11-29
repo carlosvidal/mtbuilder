@@ -54,19 +54,27 @@ class BuilderCanvas extends HTMLElement {
 
       console.log("🎯 Canvas - Updated globalSettings:", this.globalSettings);
     });
+
     window.builderEvents.addEventListener(
       "historyChange",
       this.handleHistoryChange.bind(this)
     );
+
     window.builderEvents.addEventListener("rowDeselected", () => {
       this.rows.forEach((row) => (row.selected = false));
       this.render();
     });
 
+    window.builderEvents.addEventListener(
+      "rowUpdated",
+      this.handleRowUpdated.bind(this)
+    );
+
     console.log("🏗️ Canvas - Constructor finished"); // Nuevo log
   }
 
   setupRowEvents() {
+    // Mover el código existente de setupRowEvents aquí
     window.builderEvents.addEventListener(
       "rowUpdated",
       this.handleRowUpdated.bind(this)
@@ -339,7 +347,9 @@ class BuilderCanvas extends HTMLElement {
     this.setupRowControls();
     this.setupElementDragging();
     this.setupElementDeletion();
-    this.setupDropZone(); // Mover aquí la configuración del dropzone
+    this.setupDropZone();
+    this.setupRowEventListeners();
+    this.setupRowEvents();
   }
 
   setupElementDeletion() {
@@ -1070,6 +1080,7 @@ class BuilderCanvas extends HTMLElement {
       <div class="builder-row ${row.selected ? "selected" : ""}" 
            data-id="${row.id}" 
            style="${styles}">
+        <div class="row-click-area"></div>
         <div class="row-controls">
           <button class="row-move" title="Mover fila">
             <builder-icon name="move" size="16"></builder-icon>
@@ -1114,27 +1125,44 @@ class BuilderCanvas extends HTMLElement {
   }
 
   setupRowEventListeners() {
-    // Desactivar event bubbling para evitar eventos duplicados
+    // Primero, remover todos los event listeners anteriores
     this.shadowRoot.querySelectorAll(".builder-row").forEach((row) => {
-      row.onclick = (e) => {
-        if (e.target === row || e.target.classList.contains("row-content")) {
-          // Solo si se hace clic directamente en la fila o en el contenido
+      row.replaceWith(row.cloneNode(true));
+    });
+
+    // Ahora configurar los nuevos listeners
+    this.shadowRoot.querySelectorAll(".builder-row").forEach((row) => {
+      row.addEventListener("mousedown", (e) => {
+        // Solo procesar si el click fue directamente en la fila o en su contenedor principal
+        if (
+          e.target === row ||
+          e.target.classList.contains("row-content") ||
+          e.target.classList.contains("row-click-area")
+        ) {
+          e.preventDefault();
           e.stopPropagation();
           this.selectRow(row.dataset.id);
         }
-      };
+      });
     });
   }
 
   selectRow(rowId) {
-    // Deselect any previously selected row
+    // Deseleccionar cualquier elemento seleccionado
+    this.shadowRoot
+      .querySelectorAll(".builder-element.selected")
+      .forEach((el) => {
+        el.classList.remove("selected");
+      });
+    window.builderEvents.dispatchEvent(new CustomEvent("elementDeselected"));
+
+    // Deseleccionar todas las filas
     this.rows.forEach((row) => (row.selected = false));
 
+    // Seleccionar la fila específica
     const selectedRow = this.rows.find((row) => row.id === rowId);
     if (selectedRow) {
       selectedRow.selected = true;
-
-      // Emit event for row selection
       window.builderEvents.dispatchEvent(
         new CustomEvent("rowSelected", {
           detail: selectedRow,
@@ -1175,18 +1203,36 @@ class BuilderCanvas extends HTMLElement {
   }
 
   handleRowUpdated(event) {
-    const { rowId, styles, columns } = event.detail;
+    console.log("Canvas received rowUpdated event:", event.detail);
+    const { rowId, styles, columns, type } = event.detail;
+
+    // Encontrar la fila correcta
     const row = this.rows.find((r) => r.id === rowId);
-
-    if (row) {
-      row.styles = styles;
-      if (columns && columns.length !== row.columns.length) {
-        row.columns = columns;
-      }
-
-      this.render();
-      this.emitContentChanged();
+    if (!row) {
+      console.warn("Row not found:", rowId);
+      return;
     }
+
+    // Actualizar los estilos
+    row.styles = { ...row.styles, ...styles };
+
+    // Actualizar columnas si es necesario
+    if (columns && columns.length !== row.columns.length) {
+      row.columns = columns;
+    }
+
+    // Actualizar tipo si cambió
+    if (type) {
+      row.type = type;
+    }
+
+    // Solo emitir contentChanged una vez
+    this.emitContentChanged();
+
+    // Y luego renderizar
+    requestAnimationFrame(() => {
+      this.render();
+    });
   }
 
   setupElementSelection() {
@@ -1216,6 +1262,10 @@ class BuilderCanvas extends HTMLElement {
         this.shadowRoot.querySelectorAll(".selected").forEach((el) => {
           el.classList.remove("selected");
         });
+
+        // Deseleccionar fila si hay alguna seleccionada
+        this.rows.forEach((row) => (row.selected = false));
+        window.builderEvents.dispatchEvent(new CustomEvent("rowDeselected"));
 
         element.classList.add("selected");
 
@@ -1430,9 +1480,20 @@ class BuilderCanvas extends HTMLElement {
           }
   
           /* Estilos de filas */
+.row-click-area {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  cursor: pointer;
+  z-index: 1;
+}
+
 .builder-row {
   position: relative;
   margin: 1rem 0;
+  padding: 1rem;
   border: 1px solid transparent;
   border-radius: 4px;
   transition: all 0.2s ease;
@@ -1445,6 +1506,26 @@ class BuilderCanvas extends HTMLElement {
 .builder-row.selected {
   border: 2px solid #2196F3;
   box-shadow: 0 0 0 4px rgba(33, 150, 243, 0.1);
+}
+
+.row-controls {
+  position: absolute;
+  top: -2rem;
+  right: 0;
+  z-index: 10;
+}
+
+.builder-element {
+  position: relative;
+  z-index: 2;
+}
+
+/* Asegurarse que los controles estén por encima del área de click */
+.row-controls,
+.row-add-button,
+.builder-element {
+  position: relative;
+  z-index: 2;
 }
 
 .row-controls {

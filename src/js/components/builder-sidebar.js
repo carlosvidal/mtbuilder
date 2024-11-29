@@ -1,10 +1,12 @@
 import { BuilderIcon } from "./builder-icon.js";
 import { I18n } from "../utils/i18n.js";
+import { registerEditors } from "./register-editors.js";
 
 class BuilderSidebar extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
+    registerEditors();
     this.currentTab = "principal";
     this.showingEditor = false;
     this.selectedElement = null;
@@ -81,7 +83,7 @@ class BuilderSidebar extends HTMLElement {
           <h3 class="editor-title">Editar Fila</h3>
         </div>
         <div class="editor-content">
-          <row-editor></row-editor>
+          <row-editor id="rowEditor"></row-editor>
         </div>
       </div>
     `;
@@ -233,7 +235,8 @@ class BuilderSidebar extends HTMLElement {
       console.log("Row selected:", e.detail);
       this.selectedRow = e.detail;
       this.showingRowEditor = true;
-      this.showingEditor = false; // Asegurarse de que no se muestre el editor de elementos
+      this.showingEditor = false; // Asegurar que el editor de elementos se oculte
+      this.selectedElement = null;
       this.render();
     });
 
@@ -259,6 +262,8 @@ class BuilderSidebar extends HTMLElement {
     this.selectionListener = (e) => {
       this.selectedElement = e.detail;
       this.showingEditor = true;
+      this.showingRowEditor = false; // Asegurar que el editor de filas se oculte
+      this.selectedRow = null;
       this.render();
     };
 
@@ -394,9 +399,9 @@ class BuilderSidebar extends HTMLElement {
       ${this.getStyles()}
       <div class="sidebar-container">
         ${
-          this.showingEditor
+          this.showingEditor && this.selectedElement
             ? this.renderElementEditor()
-            : this.showingRowEditor
+            : this.showingRowEditor && this.selectedRow
             ? this.renderRowEditor()
             : this.renderMainSidebar()
         }
@@ -404,9 +409,9 @@ class BuilderSidebar extends HTMLElement {
     `;
 
     requestAnimationFrame(() => {
-      if (this.showingEditor) {
+      if (this.showingEditor && this.selectedElement) {
         this.setupElementEditor();
-      } else if (this.showingRowEditor) {
+      } else if (this.showingRowEditor && this.selectedRow) {
         this.setupRowEditor();
       } else {
         this.setupTabListeners();
