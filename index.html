@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <base href="/mtbuilder/" />
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Page Builder</title>
@@ -21,5 +20,13 @@
   </head>
   <body>
     <page-manager></page-manager>
+    <script>
+      const base = document.createElement("base");
+      base.href =
+        window.location.hostname === "carlosvidal.github.io"
+          ? "/mtbuilder/" // Ruta en GitHub Pages
+          : "/"; // Ruta en tu entorno local
+      document.head.appendChild(base);
+    </script>
   </body>
 </html>
