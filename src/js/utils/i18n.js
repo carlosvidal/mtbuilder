@@ -66,37 +66,35 @@ export class I18n {
         return true;
       }
 
-      // Solo intentar una ruta basada en la estructura de tu proyecto
-      const path = `/src/locales/${normalizedLocale}.json`;
+      // Detectar base URL dinámica
+      const basePath =
+        window.location.hostname === "carlosvidal.github.io"
+          ? "/nombre-del-repositorio" // Cambia esto por tu nombre de repositorio
+          : "";
+      const path = `${basePath}/src/locales/${normalizedLocale}.json`;
 
-      try {
-        console.log(`🔍 Loading from: ${path}`);
-        const response = await fetch(path);
+      console.log(`🔍 Loading from: ${path}`);
+      const response = await fetch(path);
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const translations = await response.json();
-        console.log("✅ Successfully loaded translations from file");
-        this.translations[normalizedLocale] =
-          this.flattenTranslations(translations);
-        return true;
-      } catch (error) {
-        console.log(`⚠️ Could not load from file: ${error.message}`);
-        console.log("↪️ Using built-in translations as fallback");
-
-        // Usar traducciones incorporadas como fallback
-        const builtInTranslations = await this.getBuiltInTranslations(
-          normalizedLocale
-        );
-        this.translations[normalizedLocale] =
-          this.flattenTranslations(builtInTranslations);
-        return true;
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+
+      const translations = await response.json();
+      console.log("✅ Successfully loaded translations from file");
+      this.translations[normalizedLocale] =
+        this.flattenTranslations(translations);
+      return true;
     } catch (error) {
-      console.error(`❌ Error in loadTranslations for ${locale}:`, error);
-      return false;
+      console.log(`⚠️ Could not load from file: ${error.message}`);
+      console.log("↪️ Using built-in translations as fallback");
+
+      const builtInTranslations = await this.getBuiltInTranslations(
+        normalizedLocale
+      );
+      this.translations[normalizedLocale] =
+        this.flattenTranslations(builtInTranslations);
+      return true;
     }
   }
 
