@@ -1,4 +1,6 @@
 import { BuilderIcon } from "./builder-icon.js";
+import { store } from "../utils/store.js";
+import { eventBus } from "../utils/event-bus.js";
 import { History } from "../utils/history.js";
 import { ExportUtils } from "../utils/export-utils.js";
 import { I18n } from "../utils/i18n.js";
@@ -8,23 +10,36 @@ class CanvasViewSwitcher extends HTMLElement {
     super();
     this.attachShadow({ mode: "open" });
     this.currentView = "design";
-    this.editorData = null;
-    this.canvas = null;
     this.history = new History();
     this._isUndoRedoOperation = false;
     this.i18n = I18n.getInstance();
-    window.builderEvents = window.builderEvents || new EventTarget();
 
-    // Bind the event handlers
-    this.handleHistoryChange = this.handleHistoryChange.bind(this);
-    this.handleUndo = this.handleUndo.bind(this);
-    this.handleRedo = this.handleRedo.bind(this);
-    this.contentChangedListener = this.contentChangedListener.bind(this);
+    // Suscribirse al store y eventos
+    this.unsubscribeStore = store.subscribe(this.handleStateChange.bind(this));
+    this.setupEventSubscriptions();
+  }
 
-    window.builderEvents.addEventListener("contentChanged", (event) => {
-      this.editorData = event.detail;
-      this.updateViews();
-    });
+  setupEventSubscriptions() {
+    eventBus.on("contentChanged", this.handleContentChanged.bind(this));
+    eventBus.on("historyChange", this.handleHistoryChange.bind(this));
+  }
+
+  handleContentChanged(data) {
+    if (!this._isUndoRedoOperation) {
+      this.history.pushState(data);
+    }
+  }
+
+  handleStateChange(newState, prevState) {
+    // Solo actualizar las vistas si hay cambios relevantes
+    const hasChanges =
+      JSON.stringify(prevState?.rows) !== JSON.stringify(newState?.rows) ||
+      JSON.stringify(prevState?.globalSettings) !==
+        JSON.stringify(newState?.globalSettings);
+
+    if (hasChanges && this.currentView !== "design") {
+      this.updateViews(newState);
+    }
   }
 
   static get observedAttributes() {
@@ -42,83 +57,264 @@ class CanvasViewSwitcher extends HTMLElement {
     }
   }
 
-  connectCanvas() {
-    this.canvas = this.shadowRoot.querySelector("builder-canvas");
-    if (this.canvas) {
-      this.canvas.removeEventListener(
-        "contentChanged",
-        this.contentChangedListener
-      );
-      this.canvas.addEventListener(
-        "contentChanged",
-        this.contentChangedListener
-      );
-
-      // Agregar escucha de eventos globales
-      window.builderEvents.addEventListener("contentChanged", (event) => {
-        this.editorData = event.detail;
-        this.updateViews();
-      });
-    }
-  }
-
   connectedCallback() {
     this.setupInitialDOM();
-    this.connectCanvas(); // Agregar esta línea
     this.setupEventListeners();
     this.updateActiveView();
-
-    window.builderEvents.addEventListener(
-      "historyChange",
-      this.handleHistoryChange
-    );
   }
 
   disconnectedCallback() {
-    if (this.canvas) {
-      this.canvas.removeEventListener(
-        "contentChanged",
-        this.contentChangedListener
+    if (this.unsubscribeStore) {
+      this.unsubscribeStore();
+    }
+
+    eventBus.off("contentChanged", this.handleContentChanged);
+    eventBus.off("historyChange", this.handleHistoryChange);
+    eventBus.off("viewChanged", this.handleViewChange);
+  }
+
+  handleHistoryChange({ canUndo, canRedo }) {
+    // Solo actualizar si estamos en vista diseño
+    if (this.currentView === "design") {
+      const undoButton = this.shadowRoot.querySelector(".undo-button");
+      const redoButton = this.shadowRoot.querySelector(".redo-button");
+
+      if (undoButton) undoButton.disabled = !canUndo;
+      if (redoButton) redoButton.disabled = !canRedo;
+    }
+  }
+
+  async handleUndo() {
+    const previousState = this.history.undo();
+    if (previousState) {
+      this._isUndoRedoOperation = true;
+      store.setState(previousState);
+      this._isUndoRedoOperation = false;
+    }
+  }
+
+  async handleRedo() {
+    const nextState = this.history.redo();
+    if (nextState) {
+      this._isUndoRedoOperation = true;
+      store.setState(nextState);
+      this._isUndoRedoOperation = false;
+    }
+  }
+
+  handleViewChange(newView) {
+    if (this.currentView === newView) return;
+
+    this.currentView = newView;
+    this.updateActiveView();
+
+    // Emitir evento de cambio de vista
+    eventBus.emit("viewChanged", { view: newView });
+
+    // Actualizar las vistas si no estamos en diseño
+    if (this.currentView !== "design") {
+      this.updateViews();
+    }
+  }
+
+  updateActiveView() {
+    // Actualizar clases de las pestañas
+    this.shadowRoot.querySelectorAll(".view-tab").forEach((tab) => {
+      tab.classList.toggle("active", tab.dataset.view === this.currentView);
+    });
+
+    // Actualizar visibilidad de las vistas
+    this.shadowRoot.querySelectorAll(".view").forEach((view) => {
+      view.classList.toggle(
+        "active",
+        view.classList.contains(`${this.currentView}-view`)
       );
-    }
-    window.builderEvents.removeEventListener(
-      "historyChange",
-      this.handleHistoryChange
-    );
-  }
+    });
 
-  // En canvas-view-switcher.js
-  handleHistoryChange(event) {
-    const { canUndo, canRedo } = event.detail;
-    console.log("History change:", { canUndo, canRedo });
+    // Actualizar los botones de acción según la vista actual
+    this.updateActionButtons();
 
-    const undoButton = this.shadowRoot.querySelector(".undo-button");
-    const redoButton = this.shadowRoot.querySelector(".redo-button");
-
-    if (undoButton) {
-      undoButton.disabled = !canUndo;
-      undoButton.classList.toggle("active", canUndo);
-    }
-
-    if (redoButton) {
-      redoButton.disabled = !canRedo;
-      redoButton.classList.toggle("active", canRedo);
+    // Actualizar contenido si no estamos en la vista de diseño
+    if (this.currentView !== "design") {
+      this.updateViews();
     }
   }
 
-  handleUndo() {
-    console.log("Undo requested");
-    const canvas = this.shadowRoot.querySelector("builder-canvas");
-    if (canvas) {
-      canvas.handleUndo();
+  updateActionButtons() {
+    const actionsContainer = this.shadowRoot.querySelector(".view-actions");
+    if (!actionsContainer) return;
+
+    // Generar HTML para los botones según la vista actual
+    let buttonsHtml = "";
+    switch (this.currentView) {
+      case "design":
+        buttonsHtml = `
+          <button class="undo-button" disabled>
+            <builder-icon name="undo" size="20"></builder-icon>
+            <span>${this.i18n.t("builder.canvas.actions.undo")}</span>
+          </button>
+          <button class="redo-button" disabled>
+            <builder-icon name="redo" size="20"></builder-icon>
+            <span>${this.i18n.t("builder.canvas.actions.redo")}</span>
+          </button>
+        `;
+        break;
+      case "preview":
+        buttonsHtml = `
+          <button class="device-button active" data-device="desktop">
+            <builder-icon name="desktop" size="20"></builder-icon>
+          </button>
+          <button class="device-button" data-device="tablet">
+            <builder-icon name="tablet" size="20"></builder-icon>
+          </button>
+          <button class="device-button" data-device="mobile">
+            <builder-icon name="mobile" size="20"></builder-icon>
+          </button>
+        `;
+        break;
+      case "html":
+        buttonsHtml = `
+          <button class="copy-button" data-type="html">
+            <builder-icon name="copy" size="20"></builder-icon>
+            <span>${this.i18n.t("builder.canvas.actions.copyHtml")}</span>
+          </button>
+          <button class="download-button" data-type="html">
+            <builder-icon name="download" size="20"></builder-icon>
+            <span>${this.i18n.t("builder.canvas.actions.downloadHtml")}</span>
+          </button>
+        `;
+        break;
+      case "json":
+        buttonsHtml = `
+          <button class="copy-button" data-type="json">
+            <builder-icon name="copy" size="20"></builder-icon>
+            <span>${this.i18n.t("builder.canvas.actions.copyJson")}</span>
+          </button>
+        `;
+        break;
+    }
+
+    actionsContainer.innerHTML = buttonsHtml;
+    this.setupActionListeners();
+  }
+
+  setupEventListeners() {
+    // Configurar tabs
+    this.shadowRoot.querySelectorAll(".view-tab").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        this.handleViewChange(tab.dataset.view);
+      });
+    });
+
+    this.setupActionListeners();
+  }
+
+  setupActionListeners() {
+    // Configurar botones según la vista
+    if (this.currentView === "design") {
+      const undoButton = this.shadowRoot.querySelector(".undo-button");
+      const redoButton = this.shadowRoot.querySelector(".redo-button");
+
+      if (undoButton) {
+        undoButton.addEventListener("click", this.handleUndo.bind(this));
+      }
+      if (redoButton) {
+        redoButton.addEventListener("click", this.handleRedo.bind(this));
+      }
+    } else if (this.currentView === "preview") {
+      this.shadowRoot.querySelectorAll(".device-button").forEach((button) => {
+        button.addEventListener("click", () => {
+          this.shadowRoot.querySelectorAll(".device-button").forEach((btn) => {
+            btn.classList.remove("active");
+          });
+          button.classList.add("active");
+          const previewFrame = this.shadowRoot.querySelector(".preview-frame");
+          previewFrame.className = "preview-frame " + button.dataset.device;
+        });
+      });
+    } else if (this.currentView === "html" || this.currentView === "json") {
+      const copyButton = this.shadowRoot.querySelector(".copy-button");
+      const downloadButton = this.shadowRoot.querySelector(".download-button");
+
+      if (copyButton) {
+        copyButton.addEventListener("click", () => {
+          const state = store.getState();
+          const content =
+            this.currentView === "html"
+              ? ExportUtils.generateHTML(state)
+              : JSON.stringify(state, null, 2);
+
+          navigator.clipboard.writeText(content).then(() => {
+            this.showNotification(
+              this.i18n.t("builder.canvas.confirmations.copySuccess")
+            );
+          });
+        });
+      }
+
+      if (downloadButton && this.currentView === "html") {
+        downloadButton.addEventListener("click", () => {
+          const state = store.getState();
+          const html = ExportUtils.generateHTML(state);
+          ExportUtils.downloadHTML(html);
+          this.showNotification(
+            this.i18n.t("builder.canvas.confirmations.downloadStart")
+          );
+        });
+      }
     }
   }
 
-  handleRedo() {
-    console.log("Redo requested");
-    const canvas = this.shadowRoot.querySelector("builder-canvas");
-    if (canvas) {
-      canvas.handleRedo();
+  showNotification(message) {
+    const notification = document.createElement("div");
+    notification.className = "notification";
+    notification.textContent = message;
+
+    this.shadowRoot.appendChild(notification);
+
+    setTimeout(() => {
+      notification.remove();
+    }, 3000);
+  }
+
+  updateViews() {
+    const state = store.getState();
+    const data = {
+      rows: state.rows || [],
+      globalSettings: state.globalSettings || {},
+    };
+
+    switch (this.currentView) {
+      case "html":
+        this.updateHtmlView(data);
+        break;
+      case "preview":
+        this.updatePreviewView(data);
+        break;
+      case "json":
+        this.updateJsonView(data);
+        break;
+    }
+  }
+
+  updateHtmlView(data) {
+    const htmlContent = this.shadowRoot.querySelector(".html-content");
+    if (htmlContent) {
+      htmlContent.textContent = ExportUtils.generateHTML(data);
+    }
+  }
+
+  updatePreviewView(data) {
+    const previewContent = this.shadowRoot.querySelector(".preview-content");
+    if (previewContent) {
+      previewContent.innerHTML = ExportUtils.generatePreviewHTML(data);
+    }
+  }
+
+  updateJsonView(data) {
+    const jsonContent = this.shadowRoot.querySelector(".json-content");
+    if (jsonContent) {
+      jsonContent.textContent = JSON.stringify(data, null, 2);
     }
   }
 
@@ -127,7 +323,7 @@ class CanvasViewSwitcher extends HTMLElement {
     console.log("CanvasViewSwitcher: Setting up DOM with pageId:", pageId);
 
     this.shadowRoot.innerHTML = `
-      <style>
+ <style>
         :host {
           display: block;
           height: 100%;
@@ -349,50 +545,7 @@ class CanvasViewSwitcher extends HTMLElement {
             </button>
           </div>
           <div class="view-actions">
-            ${
-              this.currentView === "design"
-                ? `
-              <button class="undo-button" disabled>
-                <builder-icon name="undo" size="20"></builder-icon>
-                <span>${this.i18n.t("builder.canvas.actions.undo")}</span>
-              </button>
-              <button class="redo-button" disabled>
-                <builder-icon name="redo" size="20"></builder-icon>
-                <span>${this.i18n.t("builder.canvas.actions.redo")}</span>
-              </button>
-            `
-                : this.currentView === "preview"
-                ? `
-              <button class="device-button active" data-device="desktop">
-                <builder-icon name="desktop" size="20"></builder-icon>
-              </button>
-              <button class="device-button" data-device="tablet">
-                <builder-icon name="tablet" size="20"></builder-icon>
-              </button>
-              <button class="device-button" data-device="mobile">
-                <builder-icon name="mobile" size="20"></builder-icon>
-              </button>
-            `
-                : this.currentView === "html"
-                ? `
-              <button class="copy-button" data-type="html">
-                <builder-icon name="copy" size="20"></builder-icon>
-                <span>${this.i18n.t("builder.canvas.actions.copyHtml")}</span>
-              </button>
-              <button class="download-button" data-type="html">
-                <builder-icon name="download" size="20"></builder-icon>
-                <span>${this.i18n.t(
-                  "builder.canvas.actions.downloadHtml"
-                )}</span>
-              </button>
-            `
-                : `
-              <button class="copy-button" data-type="json">
-                <builder-icon name="copy" size="20"></builder-icon>
-                <span>${this.i18n.t("builder.canvas.actions.copyJson")}</span>
-              </button>
-            `
-            }
+            <!-- Los botones se agregarán dinámicamente en updateActionButtons -->
           </div>
         </div>
 
@@ -425,402 +578,9 @@ class CanvasViewSwitcher extends HTMLElement {
         </div>
       </div>
     `;
-  }
 
-  updateActiveView() {
-    // Actualizar clases de las pestañas
-    this.shadowRoot.querySelectorAll(".view-tab").forEach((tab) => {
-      if (tab.dataset.view === this.currentView) {
-        tab.classList.add("active");
-      } else {
-        tab.classList.remove("active");
-      }
-    });
-
-    // Actualizar visibilidad de las vistas
-    this.shadowRoot.querySelectorAll(".view").forEach((view) => {
-      if (view.classList.contains(`${this.currentView}-view`)) {
-        view.classList.add("active");
-      } else {
-        view.classList.remove("active");
-      }
-    });
-
-    // Re-configurar el DOM para actualizar los botones
-    this.setupInitialDOM();
-    this.connectCanvas();
-
-    // Actualizar contenido si es necesario
-    if (this.currentView !== "design") {
-      this.updateViews();
-    }
-
-    // Re-configurar event listeners
-    this.setupEventListeners();
-  }
-
-  setupEventListeners() {
-    // Configurar tabs
-    this.shadowRoot.querySelectorAll(".view-tab").forEach((tab) => {
-      tab.addEventListener("click", () => {
-        this.currentView = tab.dataset.view;
-        this.updateActiveView();
-      });
-    });
-
-    // Configurar botones según la vista
-    if (this.currentView === "design") {
-      const undoButton = this.shadowRoot.querySelector(".undo-button");
-      const redoButton = this.shadowRoot.querySelector(".redo-button");
-
-      if (undoButton) {
-        undoButton.addEventListener("click", this.handleUndo.bind(this));
-      }
-      if (redoButton) {
-        redoButton.addEventListener("click", this.handleRedo.bind(this));
-      }
-    } else if (this.currentView === "preview") {
-      this.shadowRoot.querySelectorAll(".device-button").forEach((button) => {
-        button.addEventListener("click", () => {
-          this.shadowRoot.querySelectorAll(".device-button").forEach((btn) => {
-            btn.classList.remove("active");
-          });
-          button.classList.add("active");
-          const previewFrame = this.shadowRoot.querySelector(".preview-frame");
-          previewFrame.className = "preview-frame " + button.dataset.device;
-        });
-      });
-    } else if (this.currentView === "html" || this.currentView === "json") {
-      const copyButton = this.shadowRoot.querySelector(".copy-button");
-      const downloadButton = this.shadowRoot.querySelector(".download-button");
-
-      if (copyButton) {
-        copyButton.addEventListener("click", () => {
-          const content =
-            this.currentView === "html"
-              ? this.generateHTML()
-              : JSON.stringify(this.editorData || {}, null, 2);
-          navigator.clipboard.writeText(content).then(() => {
-            this.showNotification(
-              this.i18n.t("builder.canvas.confirmations.copySuccess")
-            );
-          });
-        });
-      }
-
-      if (downloadButton && this.currentView === "html") {
-        downloadButton.addEventListener("click", () => {
-          const html = this.generateHTML();
-          ExportUtils.downloadHTML(html);
-          this.showNotification(
-            this.i18n.t("builder.canvas.confirmations.downloadStart")
-          );
-        });
-      }
-    }
-
-    // Siempre escuchar cambios en el historial para actualizar undo/redo
-    window.builderEvents.addEventListener(
-      "historyChange",
-      this.handleHistoryChange
-    );
-  }
-
-  showNotification(message) {
-    const notification = document.createElement("div");
-    notification.className = "notification";
-    notification.textContent = message;
-
-    this.shadowRoot.appendChild(notification);
-
-    setTimeout(() => {
-      notification.remove();
-    }, 3000);
-  }
-
-  generatePreviewHTML(data) {
-    if (!data || !data.rows) return "";
-
-    const globalStyles = data.globalSettings || {};
-    const wrapperStyles = `
-      max-width: ${globalStyles.maxWidth || "1200px"};
-      padding: ${globalStyles.padding || "20px"};
-      background-color: ${globalStyles.backgroundColor || "#ffffff"};
-      font-family: ${
-        globalStyles.fontFamily || "system-ui, -apple-system, sans-serif"
-      };
-      margin: 0 auto;
-    `;
-
-    return `
-      <div class="page-wrapper" style="${wrapperStyles}">
-        ${data.rows
-          .map((row) => {
-            const columns = row.columns
-              .map((column) => {
-                const elements = column.elements
-                  .map((element) => {
-                    const styleString = Object.entries(element.styles || {})
-                      .map(([key, value]) => {
-                        const cssKey = key
-                          .replace(/([A-Z])/g, "-$1")
-                          .toLowerCase();
-                        return `${cssKey}: ${value}`;
-                      })
-                      .join("; ");
-
-                    switch (element.type) {
-                      case "text":
-                        return `<div style="${styleString}">${
-                          element.content || ""
-                        }</div>`;
-                      case "heading":
-                        const tag = element.tag || "h2";
-                        return `<${tag} style="${styleString}">${
-                          element.content || ""
-                        }</${tag}>`;
-                      case "image":
-                        const imgAttrs = Object.entries(
-                          element.attributes || {}
-                        )
-                          .map(([key, value]) => `${key}="${value}"`)
-                          .join(" ");
-                        return `<img ${imgAttrs} style="${styleString}">`;
-                      case "button":
-                        const href = element.attributes?.href
-                          ? `onclick="window.open('${element.attributes.href}', '_blank')"`
-                          : "";
-                        return `<button ${href} style="${styleString}">${
-                          element.content || ""
-                        }</button>`;
-                      case "divider":
-                        return `<hr style="${styleString}">`;
-                      case "html":
-                        return element.content || "";
-                      case "video":
-                        const videoAttrs = Object.entries(
-                          element.attributes || {}
-                        )
-                          .map(([key, value]) => `${key}="${value}"`)
-                          .join(" ");
-                        return `<div class="video-container" style="${styleString}">
-                <iframe ${videoAttrs}></iframe>
-              </div>`;
-                      case "spacer":
-                        return `<div style="${styleString}"></div>`;
-                      case "list":
-                        const items = element.content
-                          .split("\n")
-                          .map((item) => `<li>${item.trim()}</li>`)
-                          .join("");
-                        return `<${element.tag} style="${styleString}">${items}</${element.tag}>`;
-                      case "table":
-                        return `<div class="table-container" style="overflow-x: auto;">
-                <table style="${styleString}">${element.content}</table>
-              </div>`;
-                      default:
-                        return `<div style="${styleString}">${
-                          element.content || ""
-                        }</div>`;
-                    }
-                  })
-                  .join("\n");
-
-                return `<div class="column" style="flex: 1; padding: 10px;">${elements}</div>`;
-              })
-              .join("\n");
-
-            return `<div class="row" style="display: flex; margin: 0 auto; max-width: 1200px;">${columns}</div>`;
-          })
-          .join("\n")}
-      </div>
-      `;
-  }
-  contentChangedListener(event) {
-    console.log(
-      "🔄 ViewSwitcher - Content changed event received",
-      event.detail
-    );
-
-    // Asegurarse de que los globalSettings se incluyan en editorData
-    this.editorData = {
-      ...event.detail,
-      globalSettings: event.detail.globalSettings || {},
-      rows: event.detail.rows || [],
-    };
-
-    // Actualizar todas las vistas inmediatamente
-    this.updateViews();
-
-    // Si no estamos en una operación undo/redo, actualizar el historial
-    if (!this._isUndoRedoOperation) {
-      console.log(
-        "🔄 ViewSwitcher - Pushing new state to history:",
-        this.editorData
-      );
-      this.history.pushState(this.editorData);
-    }
-  }
-
-  updateViews() {
-    console.log("🔄 ViewSwitcher - Updating views with data:", this.editorData);
-
-    if (!this.editorData) return;
-
-    const htmlContent = this.shadowRoot.querySelector(".html-content");
-    const jsonContent = this.shadowRoot.querySelector(".json-content");
-    const previewContent = this.shadowRoot.querySelector(".preview-content");
-
-    if (htmlContent) {
-      const html = this.generateHTML();
-      htmlContent.textContent = html;
-      console.log("🔄 ViewSwitcher - Updated HTML view");
-    }
-
-    if (jsonContent) {
-      jsonContent.textContent = JSON.stringify(this.editorData || {}, null, 2);
-      console.log("🔄 ViewSwitcher - Updated JSON view");
-    }
-
-    if (previewContent) {
-      previewContent.innerHTML = this.generatePreviewHTML(this.editorData);
-      console.log("🔄 ViewSwitcher - Updated preview");
-    }
-  }
-
-  generateHTML() {
-    if (!this.editorData) {
-      return "<!-- No content -->";
-    }
-
-    const globalStyles = this.editorData.globalSettings || {};
-
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Page</title>
-    <style>
-      * {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-      }
-      
-      body {
-        font-family: ${
-          globalStyles.fontFamily || "system-ui, -apple-system, sans-serif"
-        };
-        line-height: 1.5;
-        color: #333;
-        background-color: #f5f5f5;
-      }
-      
-      .page-wrapper {
-        max-width: ${globalStyles.maxWidth || "1200px"};
-        padding: ${globalStyles.padding || "20px"};
-        background-color: ${globalStyles.backgroundColor || "#ffffff"};
-        margin: 0 auto;
-      }
-      
-      img {
-        max-width: 100%;
-        height: auto;
-      }
-      
-      .row {
-        display: flex;
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 1rem;
-      }
-      
-      .column {
-        flex: 1;
-        padding: 1rem;
-      }
-      
-      @media (max-width: 768px) {
-        .row {
-          flex-direction: column;
-        }
-      }
-    </style>
-</head>
-<body>
-    ${
-      this.editorData
-        ? this.convertToHTML(this.editorData)
-        : "<!-- No content -->"
-    }
-</body>
-</html>`;
-
-    return ExportUtils.generateExportableHTML(this.editorData);
-  }
-
-  // En canvas-view-switcher.js
-  convertToHTML(data) {
-    if (!data || !data.rows) return "";
-
-    return data.rows
-      .map((row) => {
-        const columns = row.columns
-          .map((column) => {
-            const elements = column.elements
-              .map((element) => {
-                const styleString = Object.entries(element.styles || {})
-                  .map(([key, value]) => {
-                    const cssKey = key.replace(/([A-Z])/g, "-$1").toLowerCase();
-                    return `${cssKey}: ${value}`;
-                  })
-                  .join("; ");
-
-                switch (element.type) {
-                  case "text":
-                    return `<div style="${styleString}">${
-                      element.content || ""
-                    }</div>`;
-
-                  case "heading":
-                    const tag = element.tag || "h2";
-                    return `<${tag} style="${styleString}">${
-                      element.content || ""
-                    }</${tag}>`;
-
-                  case "image":
-                    const imgAttrs = Object.entries(element.attributes || {})
-                      .map(([key, value]) => `${key}="${value}"`)
-                      .join(" ");
-                    return `<img ${imgAttrs} style="${styleString}">`;
-
-                  case "button":
-                    return `<button style="${styleString}">${
-                      element.content || ""
-                    }</button>`;
-
-                  case "divider":
-                    return `<hr style="${styleString}">`;
-
-                  case "html":
-                    return element.content || "";
-
-                  default:
-                    return `<div style="${styleString}">${
-                      element.content || ""
-                    }</div>`;
-                }
-              })
-              .join("\n");
-
-            return `<div class="column" style="flex: 1; padding: 10px;">${elements}</div>`;
-          })
-          .join("\n");
-
-        return `<div class="row" style="display: flex; margin: 0 auto; max-width: 1200px;">${columns}</div>`;
-      })
-      .join("\n");
+    // Actualizar los botones de acción iniciales
+    this.updateActionButtons();
   }
 }
 

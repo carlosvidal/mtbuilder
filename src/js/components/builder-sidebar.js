@@ -1,8 +1,11 @@
+// builder-sidebar.js
 import { BuilderIcon } from "./builder-icon.js";
 import { I18n } from "../utils/i18n.js";
 import { registerEditors } from "./register-editors.js";
+import { store } from "../utils/store.js";
+import { eventBus } from "../utils/event-bus.js";
 
-class BuilderSidebar extends HTMLElement {
+export class BuilderSidebar extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
@@ -12,6 +15,7 @@ class BuilderSidebar extends HTMLElement {
     this.selectedElement = null;
     this.i18n = I18n.getInstance();
 
+    // Define available rows and elements
     this.rows = [
       { type: "row-1", columns: 1 },
       { type: "row-2", columns: 2 },
@@ -32,13 +36,111 @@ class BuilderSidebar extends HTMLElement {
       { type: "html" },
     ];
 
-    // Listen for language changes
-    window.addEventListener("localeChanged", () => {
-      this.render();
-    });
+    // Subscribe to store changes
+    this.unsubscribeStore = store.subscribe(this.handleStateChange.bind(this));
+
+    // Subscribe to events
+    this.setupEventSubscriptions();
 
     this.showingRowEditor = false;
     this.selectedRow = null;
+  }
+
+  setupEventSubscriptions() {
+    // Remove old event listeners
+    window.builderEvents.removeEventListener(
+      "rowSelected",
+      this.rowSelectedHandler
+    );
+    window.builderEvents.removeEventListener(
+      "rowDeselected",
+      this.rowDeselectedHandler
+    );
+    window.builderEvents.removeEventListener(
+      "elementSelected",
+      this.elementSelectedHandler
+    );
+    window.builderEvents.removeEventListener(
+      "elementDeselected",
+      this.elementDeselectedHandler
+    );
+
+    // Create handlers
+    this.rowSelectedHandler = (e) => {
+      console.log("Row selected event received:", e.detail);
+      this.selectedRow = e.detail.row;
+      this.showingRowEditor = true;
+      this.showingEditor = false;
+      this.selectedElement = null;
+      this.render();
+    };
+
+    this.rowDeselectedHandler = () => {
+      console.log("Row deselected event received");
+      this.selectedRow = null;
+      this.showingRowEditor = false;
+      this.render();
+    };
+
+    this.elementSelectedHandler = (e) => {
+      console.log("Element selected event received:", e.detail);
+      this.selectedElement = e.detail;
+      this.showingEditor = true;
+      this.showingRowEditor = false;
+      this.selectedRow = null;
+      this.render();
+    };
+
+    this.elementDeselectedHandler = () => {
+      console.log("Element deselected event received");
+      this.selectedElement = null;
+      this.showingEditor = false;
+      this.render();
+    };
+
+    // Add new event listeners
+    window.builderEvents.addEventListener(
+      "rowSelected",
+      this.rowSelectedHandler
+    );
+    window.builderEvents.addEventListener(
+      "rowDeselected",
+      this.rowDeselectedHandler
+    );
+    window.builderEvents.addEventListener(
+      "elementSelected",
+      this.elementSelectedHandler
+    );
+    window.builderEvents.addEventListener(
+      "elementDeselected",
+      this.elementDeselectedHandler
+    );
+  }
+
+  handleStateChange(newState, prevState) {
+    console.log("Sidebar state change:", {
+      prev: prevState,
+      next: newState,
+    });
+
+    // Check if relevant state has changed
+    const needsUpdate =
+      newState.selectedRow !== prevState?.selectedRow ||
+      newState.selectedElement !== prevState?.selectedElement ||
+      newState.dragging !== prevState?.dragging ||
+      JSON.stringify(newState.rows) !== JSON.stringify(prevState?.rows);
+
+    if (needsUpdate) {
+      console.log("Sidebar needs update, rendering...");
+      this.render();
+
+      // Setup drag and drop after render if needed
+      if (this.currentTab === "rows" || this.currentTab === "elements") {
+        requestAnimationFrame(() => {
+          this.setupDragAndDrop();
+        });
+      }
+    }
   }
 
   renderMainSidebar() {
@@ -91,6 +193,7 @@ class BuilderSidebar extends HTMLElement {
 
   renderPrincipalTab() {
     return `
+    <div class="principal-tab">
       <div class="section-header">
         <h2>${this.i18n.t("builder.sidebar.principal.title")}</h2>
         <p class="description">${this.i18n.t(
@@ -215,32 +318,43 @@ class BuilderSidebar extends HTMLElement {
   }
 
   connectedCallback() {
-    console.log("🏁 Sidebar - Connected"); // Nuevo log
+    console.log("🏁 Sidebar - Connected");
+
+    // Configurar event listeners y suscripciones
+    this.setupRowSelection();
     this.setupElementSelection();
 
-    // Forzar la configuración de los listeners si estamos en la pestaña principal
-    if (this.currentTab === "principal") {
-      console.log("🏁 Sidebar - Principal tab active, setting up listeners"); // Nuevo log
-      requestAnimationFrame(() => {
-        this.setupPrincipalTabListeners();
-      });
-    }
-
+    // Renderizar inicialmente
     this.render();
-    this.setupRowSelection();
+
+    // Configurar listeners después del render
+    requestAnimationFrame(() => {
+      this.setupTabListeners();
+      this.setupDragAndDrop();
+
+      if (this.currentTab === "principal") {
+        this.setupPrincipalTabListeners();
+      }
+    });
   }
 
   setupRowSelection() {
-    window.builderEvents.addEventListener("rowSelected", (e) => {
-      console.log("Row selected:", e.detail);
-      this.selectedRow = e.detail;
+    // Limpiar suscripciones anteriores
+    eventBus.off("rowSelected");
+    eventBus.off("rowDeselected");
+
+    // Suscribirse a nuevos eventos
+    eventBus.on("rowSelected", ({ row }) => {
+      console.log("Row selected:", row);
+      this.selectedRow = row;
       this.showingRowEditor = true;
-      this.showingEditor = false; // Asegurar que el editor de elementos se oculte
+      this.showingEditor = false;
       this.selectedElement = null;
       this.render();
     });
 
-    window.builderEvents.addEventListener("rowDeselected", () => {
+    eventBus.on("rowDeselected", () => {
+      console.log("Row deselected");
       this.selectedRow = null;
       this.showingRowEditor = false;
       this.render();
@@ -248,21 +362,19 @@ class BuilderSidebar extends HTMLElement {
   }
 
   disconnectedCallback() {
-    window.builderEvents.removeEventListener(
-      "elementSelected",
-      this.selectionListener
-    );
-    window.builderEvents.removeEventListener(
-      "elementDeselected",
-      this.deselectionListener
-    );
+    // Clean up subscriptions
+    this.unsubscribeStore();
+    eventBus.off("rowSelected");
+    eventBus.off("rowDeselected");
+    eventBus.off("elementSelected");
+    eventBus.off("elementDeselected");
   }
 
   setupElementSelection() {
     this.selectionListener = (e) => {
       this.selectedElement = e.detail;
       this.showingEditor = true;
-      this.showingRowEditor = false; // Asegurar que el editor de filas se oculte
+      this.showingRowEditor = false;
       this.selectedRow = null;
       this.render();
     };
@@ -298,21 +410,54 @@ class BuilderSidebar extends HTMLElement {
   }
 
   setupDragAndDrop() {
-    this.shadowRoot.querySelectorAll(".builder-element").forEach((element) => {
-      element.setAttribute("draggable", "true");
+    console.log("🎨 Sidebar - Setting up drag and drop");
 
-      element.addEventListener("dragstart", (e) => {
-        const type = element.getAttribute("data-type");
-        e.dataTransfer.effectAllowed = "copy";
-        e.dataTransfer.setData("application/builder-element", type);
-        e.dataTransfer.setData("text/plain", type);
-        element.classList.add("dragging");
+    // Setup row dragging
+    this.shadowRoot
+      .querySelectorAll('.builder-element[data-type^="row-"]')
+      .forEach((element) => {
+        console.log("🎨 Setting up row element:", element.dataset.type);
+
+        element.setAttribute("draggable", "true");
+        element.addEventListener("dragstart", (e) => {
+          console.log("🎨 Row dragstart:", {
+            type: element.dataset.type,
+          });
+
+          e.dataTransfer.setData("text/plain", element.dataset.type);
+          e.dataTransfer.effectAllowed = "copy";
+
+          element.classList.add("dragging");
+        });
+
+        element.addEventListener("dragend", () => {
+          element.classList.remove("dragging");
+        });
       });
 
-      element.addEventListener("dragend", () => {
-        element.classList.remove("dragging");
+    // Setup element dragging
+    this.shadowRoot
+      .querySelectorAll('.builder-element:not([data-type^="row-"])')
+      .forEach((element) => {
+        element.setAttribute("draggable", "true");
+
+        element.addEventListener("dragstart", (e) => {
+          console.log("🎨 Element dragstart:", element.dataset.type);
+
+          e.dataTransfer.setData(
+            "application/x-builder-element",
+            element.dataset.type
+          );
+          e.dataTransfer.setData("text/plain", element.dataset.type);
+          e.dataTransfer.effectAllowed = "copy";
+
+          element.classList.add("dragging");
+        });
+
+        element.addEventListener("dragend", () => {
+          element.classList.remove("dragging");
+        });
       });
-    });
   }
 
   // Método para configurar los event listeners del tab principal
@@ -464,17 +609,33 @@ class BuilderSidebar extends HTMLElement {
     const backButton = this.shadowRoot.querySelector("#backButton");
 
     if (rowEditor && this.selectedRow) {
+      console.log("Setting up row editor with row:", this.selectedRow);
       rowEditor.setRow(this.selectedRow);
     }
 
     if (backButton) {
-      backButton.onclick = () => {
+      backButton.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        console.log("Closing row editor");
         this.showingRowEditor = false;
         this.selectedRow = null;
-        window.builderEvents.dispatchEvent(new CustomEvent("rowDeselected"));
+        eventBus.emit("rowDeselected");
         this.render();
       };
     }
+  }
+
+  handleRowUpdated(event) {
+    const { rowId, styles, columns } = event.detail;
+    console.log("Row updated:", { rowId, styles, columns });
+
+    eventBus.emit("rowUpdated", {
+      rowId,
+      styles,
+      columns,
+    });
   }
 
   setupElementEditor() {
@@ -498,267 +659,247 @@ class BuilderSidebar extends HTMLElement {
 
   getStyles() {
     return `
-      <style>
-        :host {
-          display: block;
-          height: 100%;
-          background: white;
-          font-family: system-ui, -apple-system, sans-serif;
-        }
+    <style>
+      :host {
+        display: block;
+        height: 100%;
+        background: white;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+  
+      * {
+        box-sizing: border-box;
+      }
+  
+      .sidebar-container {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+      }
+  
+      .tabs {
+        display: flex;
+        background: #f5f5f5;
+        border-bottom: 1px solid #ddd;
+        align-items: stretch;
+      }
+  
+      .tab {
+        padding: 1rem;
+        cursor: pointer;
+        border: none;
+        background: none;
+        position: relative;
+        color: #666;
+        flex: 1;
+        text-align: center;
+        font-size: 0.875rem;
+        font-weight: normal;
+      }
+  
+      .tab:hover {
+        color: #2196F3;
+      }
+  
+      .tab.active {
+        color: #2196F3;
+        font-weight: 500;
+      }
+  
+      .tab.active::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: #2196F3;
+      }
+  
+      .tab-content {
+        flex: 1;
+        padding: 1rem;
+        overflow-y: auto;
+      }
+  
+      .elements-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        gap: 1rem;
+      }
+  
+      .builder-element {
+        aspect-ratio: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+        background: white;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        cursor: move;
+        user-select: none;
+        transition: all 0.2s ease;
+      }
+  
+      .builder-element[draggable=true]:hover {
+        border-color: #2196F3;
+        transform: translateY(-2px);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      }
+  
+      .builder-element[draggable=true]:active {
+        transform: translateY(0);
+        box-shadow: none;
+      }
+  
+.builder-element.dragging {
+  opacity: 0.5;
+  border: 2px dashed #2196F3;
+  background: rgba(33, 150, 243, 0.1);
+}
 
-          * {
-            box-sizing: border-box;
-          }
-        
-        .sidebar-container {
-          display: flex;
-          flex-direction: column;
-          height: 100%;
-        }
+.builder-element[draggable=true] {
+  cursor: grab;
+}
+
+.builder-element[draggable=true]:active {
+  cursor: grabbing;
+}
   
-        .tabs {
-          display: flex;
-          background: #f5f5f5;
-          border-bottom: 1px solid #ddd;
-          align-items: stretch;
-        }
+      .element-icon {
+        font-size: 1.5rem;
+        margin-bottom: 0.5rem;
+        color: #333;
+      }
   
-        .tab {
-          padding: 1rem;
-          cursor: pointer;
-          border: none;
-          background: none;
-          position: relative;
-          color: #666;
-          flex: 1;
-          text-align: center;
-          font-size: 0.875rem;
-          font-weight: normal;
-        }
+      .element-label {
+        font-size: 0.875rem;
+        text-align: center;
+        color: #666;
+      }
   
-        .tab:hover {
-          color: #2196F3;
-        }
+      /* Styles for drag feedback */
+      @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+      }
   
-        .tab.active {
-          color: #2196F3;
-          font-weight: 500;
-        }
+      .builder-element[draggable=true]:active {
+        animation: pulse 0.3s ease-in-out infinite;
+      }
   
-        .tab.active::after {
-          content: '';
-          position: absolute;
-          bottom: 0;
-          left: 0;
-          right: 0;
-          height: 2px;
-          background: #2196F3;
-        }
+      /* Editor container styles */
+      .editor-container {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+  
+      .editor-header {
+        display: flex;
+        align-items: center;
+        padding: 1rem;
+        background: #f5f5f5;
+        border-bottom: 1px solid #ddd;
+      }
+  
+      .back-button {
+        padding: 0.5rem;
+        background: none;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #666;
+      }
+  
+      .back-button:hover {
+        color: #2196F3;
+      }
+  
+      .editor-title {
+        margin: 0 0 0 1rem;
+        font-size: 1rem;
+        font-weight: normal;
+        color: #333;
+      }
+  
+      .editor-content {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1rem;
+      }
 
         .section-header {
-          padding: 0 1rem;
-        }
-  
-        .tab-content {
-          flex: 1;
-          padding: 1rem;
-          overflow-y: auto;
-        }
-  
-        .elements-container {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-          gap: 1rem;
-        }
-                    
-        @keyframes tilt-n-move-shaking {
-          0% { transform: translate(0, 0) rotate(0deg); }
-          25% { transform: translate(5px, 5px) rotate(5deg); }
-          50% { transform: translate(0, 0) rotate(0eg); }
-          75% { transform: translate(-5px, 5px) rotate(-5deg); }
-          100% { transform: translate(0, 0) rotate(0deg); }
-        }
-  
-        .builder-element {
-          aspect-ratio: 1;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          padding: 1rem;
-          background: white;
-          border: 1px solid #e0e0e0;
-          border-radius: 8px;
-          cursor: move;
-          user-select: none;
-          transition: all 0.2s ease;
-        }
-  
-        .builder-element:hover {
-          border-color: #2196F3;
-          transform: translateY(-2px);
-          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-          animation: tilt-n-move-shaking 0.25s infinite;
-        }
+  padding: 1rem;
+  border-bottom: 1px solid #eee;
+}
 
+.section-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: #333;
+}
 
-  
-        .element-icon {
-          font-size: 1.5rem;
-          margin-bottom: 0.5rem;
-          color: #333;
-        }
-  
-        .element-label {
-          font-size: 0.875rem;
-          text-align: center;
-          color: #666;
-        }
-  
-        .form-group {
-          margin-bottom: 1.5rem;
-        }
-  
-        .form-group label {
-          display: block;
-          margin-bottom: 0.5rem;
-          color: #333;
-          font-weight: 500;
-        }
-  
-        .form-group input,
-        .form-group select {
-          width: 100%;
-          padding: 0.5rem;
-          border: 1px solid #ddd;
-          border-radius: 4px;
-          font-size: 0.875rem;
-        }
-  
-        .form-group input:focus,
-        .form-group select:focus {
-          outline: none;
-          border-color: #2196F3;
-        }
-        
-        .editor-container {
-          height: 100%;
-          display: flex;
-          flex-direction: column;
-        }
-        
-        .editor-header {
-          display: flex;
-          align-items: center;
-          border-bottom: 1px solid #ddd;
-          background: #f5f5f5;
-          gap: 0.5rem;
-          height: 48px;
-          margin-bottom: 1rem;
-        }
-        
-        .back-button {
-          background: none;
-          border: none;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          font-size: 0.875rem;
-          color: #666;
-          padding: 0.5rem;
-          border-radius: 4px;
-          margin-right: 0.25rem;
-        }
-        
-        .back-button:hover {
-          background: #eee;
-          color: #333;
-        }
-        
-        .editor-title {
-          font-size: 0.875rem;
-          color: #666;
-          margin: 0;
-          font-weight: normal;
-        }
-        
-        .editor-content {
-          flex: 1;
-          overflow-y: auto;
-        }
+.section-header .description {
+  margin: 0.5rem 0 0;
+  font-size: 0.875rem;
+  color: #666;
+}
 
-        element-editor {
-          display: block;
-          height: 100%;
-        }
+.form-group {
+  margin-bottom: 1.5rem;
+}
 
-        .input-group {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  color: #333;
+  font-weight: 500;
+}
 
-    .input-group input[type="number"] {
-      flex: 1;
-      width: auto;
-    }
+.input-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
 
-    .input-addon {
-      color: #666;
-      font-size: 0.875rem;
-      padding: 0.5rem 0;
-    }
+.input-group input[type="number"] {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.875rem;
+}
 
-    .form-group {
-      margin-bottom: 1.5rem;
-    }
+.input-group .input-addon {
+  color: #666;
+  font-size: 0.875rem;
+}
 
-    .form-group label {
-      display: block;
-      margin-bottom: 0.5rem;
-      color: #333;
-      font-weight: 500;
-      font-size: 0.875rem;
-    }
+input[type="color"] {
+  width: 100%;
+  height: 40px;
+  padding: 0.25rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
 
-    input[type="color"] {
-      -webkit-appearance: none;
-      padding: 0;
-      width: 100%;
-      height: 40px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-    }
-
-    input[type="color"]::-webkit-color-swatch-wrapper {
-      padding: 4px;
-    }
-
-    input[type="color"]::-webkit-color-swatch {
-      border: none;
-      border-radius: 2px;
-    }
-
-    select {
-      width: 100%;
-      padding: 0.5rem;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      font-size: 0.875rem;
-      color: #333;
-      background-color: white;
-    }
-
-    select:focus {
-      outline: none;
-      border-color: #2196F3;
-    }
-
-    .tab-content {
-      padding: 1.5rem;
-    }
-      </style>
+select {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  background-color: white;
+}
+Last edited hace 3 minutos
+        </style>  
     `;
   }
 
@@ -774,4 +915,3 @@ class BuilderSidebar extends HTMLElement {
 }
 
 customElements.define("builder-sidebar", BuilderSidebar);
-export { BuilderSidebar };

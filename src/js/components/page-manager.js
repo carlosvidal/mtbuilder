@@ -138,48 +138,59 @@ export class PageManager extends HTMLElement {
     if (isEditing) {
       this.shadowRoot.innerHTML = `
         <style>
-          :host {
-            display: block;
-            height: 100vh;
-          }
-          .header {
-            display: flex;
-            align-items: center;
-            padding: 1rem;
-            background: #f8f9fa;
-            border-bottom: 1px solid #dee2e6;
-          }
-          .back-button {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 0.5rem 1rem;
-          background: none;
-          border: 0;
-          cursor: pointer;
-          color: #666;
-          transition: all 0.2s ease;
-          margin-right: 1rem;
-        }
+  :host {
+    display: block;
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+    background: #f5f5f5;
+  }
+  
+  .header {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    background: white;
+    border-bottom: 1px solid #dee2e6;
+    height: 60px;
+  }
+  
+  .back-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    background: none;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #666;
+    transition: all 0.2s ease;
+    margin-right: 1rem;
+  }
 
-        .back-button:hover {
-          background: #f8f9fa;
-          color: #333;
-          border-color: #ced4da;
-        }
+  .back-button:hover {
+    background: #f8f9fa;
+    color: #333;
+    border-color: #ced4da;
+  }
 
-        .back-button builder-icon {
-          color: currentColor;
-        }
-          .page-title {
-            margin: 0;
-            font-size: 1.25rem;
-            color: #333;
-          }
-          .builder-container {
-            height: calc(100% - 60px);
-          }
-        </style>
+  .page-title {
+    margin: 0;
+    font-size: 1.25rem;
+    color: #333;
+    flex: 1;
+  }
+
+  .language-selector {
+    margin-left: auto;
+  }
+
+  .builder-container {
+    height: calc(100vh - 60px);
+    overflow: hidden;
+  }
+</style>
         <div class="header">
       <button class="back-button" id="backToList"><builder-icon name="home" size="20"></builder-icon></button>
       <h1 class="page-title">

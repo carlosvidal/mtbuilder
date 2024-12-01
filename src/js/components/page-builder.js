@@ -32,10 +32,7 @@ class PageBuilder extends HTMLElement {
 
   render() {
     const pageId = this.getAttribute("pageId");
-    console.log(
-      "PageBuilder rendering with pageId:",
-      this.getAttribute("pageId")
-    );
+    console.log("PageBuilder rendering with pageId:", pageId);
 
     this.shadowRoot.innerHTML = `
       <style>
@@ -44,26 +41,36 @@ class PageBuilder extends HTMLElement {
           width: 100%;
           height: 100vh;
           background: #f5f5f5;
+          overflow: hidden;
         }
-
+  
         .page-builder {
           display: grid;
           grid-template-columns: 300px 1fr;
-          height: 100%;
+          height: 100vh;
+          overflow: hidden;
         }
-
+  
         .sidebar-container {
+          height: 100vh;
           border-right: 1px solid #eee;
           overflow-y: auto;
           background: white;
         }
-
+  
         .canvas-container {
+          height: 100vh;
           overflow: hidden;
+          position: relative;
           background: white;
         }
+  
+        canvas-view-switcher {
+          display: block;
+          height: 100%;
+        }
       </style>
-
+  
       <div class="page-builder">
         <div class="sidebar-container">
           <builder-sidebar></builder-sidebar>
