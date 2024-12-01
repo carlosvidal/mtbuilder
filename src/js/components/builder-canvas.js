@@ -826,39 +826,52 @@ export class BuilderCanvas extends HTMLElement {
     const targetRowId = column.closest(".builder-row").dataset.id;
     const targetColumnId = column.closest(".builder-column").dataset.id;
 
-    // Obtener los elementos en su nuevo orden
-    const elementOrder = [...column.querySelectorAll(".builder-element")];
+    const state = store.getState();
+    const rows = [...state.rows];
 
     // Encontrar las filas y columnas origen/destino
-    const sourceRow = this.rows.find((r) => r.id === this.draggedElement.rowId);
-    const sourceColumn = sourceRow.columns.find(
-      (c) => c.id === this.draggedElement.columnId
+    const sourceRow = rows.find(
+      (r) => r.id === this.draggedElement.sourceRowId
     );
-    const targetRow = this.rows.find((r) => r.id === targetRowId);
-    const targetColumn = targetRow.columns.find((c) => c.id === targetColumnId);
+    const sourceColumn = sourceRow?.columns.find(
+      (c) => c.id === this.draggedElement.sourceColumnId
+    );
+    const targetRow = rows.find((r) => r.id === targetRowId);
+    const targetColumn = targetRow?.columns.find(
+      (c) => c.id === targetColumnId
+    );
 
-    // Encontrar y remover el elemento de su posición original
+    if (!sourceColumn || !targetColumn) return;
+
+    // Encontrar el elemento y su nueva posición
     const elementToMove = sourceColumn.elements.find(
       (el) => el.id === this.draggedElement.elementId
     );
+
+    if (!elementToMove) return;
+
+    // Obtener la nueva posición basada en el orden visual
+    const elements = Array.from(column.children);
+    const newIndex = elements.findIndex(
+      (el) => el.dataset.id === this.draggedElement.elementId
+    );
+
+    // Remover el elemento de la fuente
     sourceColumn.elements = sourceColumn.elements.filter(
       (el) => el.id !== this.draggedElement.elementId
     );
 
-    // Determinar la nueva posición del elemento
-    const newIndex = elementOrder.findIndex(
-      (el) => el.dataset.id === this.draggedElement.elementId
-    );
-
-    // Insertar el elemento en su nueva posición
-    if (sourceColumn === targetColumn) {
-      // Si es la misma columna, solo reordenamos
-      targetColumn.elements.splice(newIndex, 0, elementToMove);
+    // Insertar en el destino en la posición correcta
+    if (newIndex === -1) {
+      targetColumn.elements.push(elementToMove);
     } else {
-      // Si es una columna diferente, removemos y añadimos
       targetColumn.elements.splice(newIndex, 0, elementToMove);
     }
 
+    // Actualizar el store
+    store.setState({ ...state, rows });
+
+    // Limpiar estado
     this.draggedElement = null;
     this.render();
   }
@@ -955,119 +968,35 @@ export class BuilderCanvas extends HTMLElement {
   // En builder-canvas.js, añadir al setupRowControls:
 
   setupRowControls() {
-    console.log("🎯 Setting up row controls");
     const rows = this.shadowRoot.querySelectorAll(".builder-row");
-    console.log(`🎯 Found ${rows.length} rows`);
 
     rows.forEach((row) => {
-      // Debug row data
-      console.log("🎯 Row:", {
-        id: row.dataset.id,
-        type: row.dataset.type,
-        isDraggable: row.draggable,
-      });
+      const rowId = row.dataset.id;
 
-      row.addEventListener("dragstart", (e) => {
-        console.log("🎯 dragstart", {
-          rowId: row.dataset.id,
-          state: store.getState().rows.length,
+      // Duplicate button
+      const duplicateBtn = row.querySelector(".row-duplicate");
+      if (duplicateBtn) {
+        duplicateBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          this.duplicateRow(rowId);
         });
+      }
 
-        // Don't stop propagation - we need bubbling for proper drag handling
-        row.classList.add("row-dragging");
-        e.dataTransfer.setData("application/x-row", row.dataset.id);
-        e.dataTransfer.effectAllowed = "move";
-
-        this.draggedRow = {
-          id: row.dataset.id,
-          element: row,
-          startIndex: [...rows].indexOf(row),
-        };
-      });
-
-      row.addEventListener("dragover", (e) => {
-        if (!this.draggedRow) return;
-        e.preventDefault();
-
-        const rect = row.getBoundingClientRect();
-        const midpoint = rect.top + rect.height / 2;
-        const position = e.clientY < midpoint ? "before" : "after";
-
-        this.removeAllDragoverClasses();
-        row.classList.add(`dragover-${position}`);
-      });
-
-      row.addEventListener("drop", (e) => {
-        e.preventDefault();
-        if (!this.draggedRow || this.draggedRow.element === row) return;
-
-        const state = store.getState();
-        const rows = [...state.rows];
-        const sourceIndex = rows.findIndex((r) => r.id === this.draggedRow.id);
-        const targetIndex = rows.findIndex((r) => r.id === row.dataset.id);
-
-        // Move row in the array
-        const [movedRow] = rows.splice(sourceIndex, 1);
-        rows.splice(targetIndex, 0, movedRow);
-
-        // Update store through proper channels
-        store.setState({
-          ...state,
-          rows: rows,
+      // Delete button
+      const deleteBtn = row.querySelector(".row-delete");
+      if (deleteBtn) {
+        deleteBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          this.deleteRow(rowId);
         });
+      }
 
-        // Emit events
-        window.builderEvents.dispatchEvent(
-          new CustomEvent("rowMoved", {
-            detail: {
-              rowId: this.draggedRow.id,
-              sourceIndex,
-              targetIndex,
-            },
-          })
-        );
-
-        // Clean up
-        this.draggedRow = null;
-        this.removeAllDragoverClasses();
+      // Row selection
+      row.addEventListener("click", (e) => {
+        if (e.target.closest(".row-controls")) return;
+        this.selectRow(rowId);
       });
     });
-
-    // Add canvas-level drop handling for when dropping between rows
-    const canvas = this.shadowRoot.querySelector(".canvas-dropzone");
-    if (canvas) {
-      canvas.addEventListener("dragover", (e) => {
-        e.preventDefault();
-        if (!this.draggedRow) return;
-
-        const rows = [
-          ...canvas.querySelectorAll(".builder-row:not(.row-dragging)"),
-        ];
-        if (rows.length === 0) return;
-
-        const mouseY = e.clientY;
-        let closestRow = null;
-        let closestDistance = Infinity;
-        let position = "after";
-
-        rows.forEach((row) => {
-          const rect = row.getBoundingClientRect();
-          const midpoint = rect.top + rect.height / 2;
-          const distance = Math.abs(mouseY - midpoint);
-
-          if (distance < closestDistance) {
-            closestDistance = distance;
-            closestRow = row;
-            position = mouseY < midpoint ? "before" : "after";
-          }
-        });
-
-        if (closestRow) {
-          this.removeAllDragoverClasses();
-          closestRow.classList.add(`dragover-${position}`);
-        }
-      });
-    }
   }
 
   duplicateRow(rowId) {
@@ -1159,22 +1088,39 @@ export class BuilderCanvas extends HTMLElement {
     const defaults = {
       heading: {
         tag: "h2",
-        content: this.i18n.t("builder.editor.elements.heading.content"),
+        content: "New Heading",
         styles: {
           color: "#333333",
           margin: "0 0 1rem 0",
           padding: "0.5rem",
           fontFamily: "inherit",
+          fontSize: "24px",
+          fontWeight: "500",
         },
       },
       text: {
         tag: "p",
-        content: this.i18n.t("builder.editor.elements.text.content"),
+        content: "New text block",
         styles: {
-          color: "#666",
+          color: "#666666",
           margin: "0 0 1rem 0",
           padding: "0.5rem",
           lineHeight: "1.5",
+          fontSize: "16px",
+        },
+      },
+      button: {
+        tag: "button",
+        content: "Click me",
+        styles: {
+          background: "#2196F3",
+          color: "white",
+          border: "none",
+          padding: "8px 16px",
+          borderRadius: "4px",
+          cursor: "pointer",
+          fontSize: "16px",
+          fontWeight: "500",
         },
       },
       image: {
@@ -1187,19 +1133,6 @@ export class BuilderCanvas extends HTMLElement {
           maxWidth: "100%",
           height: "auto",
           display: "block",
-        },
-      },
-      button: {
-        tag: "button",
-        content: this.i18n.t("builder.editor.elements.button.text"),
-        styles: {
-          background: "#2196F3",
-          color: "white",
-          border: "none",
-          padding: "8px 16px",
-          borderRadius: "4px",
-          cursor: "pointer",
-          fontFamily: "inherit",
         },
       },
       table: {
@@ -1297,13 +1230,14 @@ export class BuilderCanvas extends HTMLElement {
   }
 
   renderElement(element) {
-    const { tag, content, styles, attributes = {} } = element;
+    const { tag, content, attributes = {} } = element;
 
-    const styleString = Object.entries(styles || {})
-      .map(
-        ([key, value]) =>
-          `${key.replace(/([A-Z])/g, "-$1").toLowerCase()}: ${value}`
-      )
+    // Solo una declaración de estilos
+    const styleString = Object.entries(element.styles || {})
+      .map(([key, value]) => {
+        const cssKey = key.replace(/([A-Z])/g, "-$1").toLowerCase();
+        return `${cssKey}: ${value}`;
+      })
       .join(";");
 
     const attributesString = Object.entries(attributes)
@@ -1312,11 +1246,13 @@ export class BuilderCanvas extends HTMLElement {
 
     const elementControls = `
       <div class="element-controls">
-        <button class="element-delete" data-element-id="${element.id}">×</button>
+        <button class="element-delete" title="Delete" data-element-id="${element.id}">
+          <builder-icon name="delete" size="16"></builder-icon>
+        </button>
       </div>
     `;
 
-    // Manejar casos especiales por tipo
+    // Mantener el switch para casos especiales
     switch (element.type) {
       case "table":
         return `
