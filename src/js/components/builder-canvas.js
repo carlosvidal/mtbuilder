@@ -39,9 +39,70 @@ export class BuilderCanvas extends HTMLElement {
     this.setupEventSubscriptions();
   }
 
-  setupEventSubscriptions() {
-    console.log("🔍 Setting up event subscriptions");
+  setupDropZone() {
+    const canvas = this.shadowRoot.querySelector(".canvas-dropzone");
+    if (!canvas) return;
 
+    // Limpiar eventos existentes
+    const newCanvas = canvas.cloneNode(true);
+    canvas.parentNode.replaceChild(newCanvas, canvas);
+
+    const dropHandler = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+
+      newCanvas.classList.remove("dragover");
+
+      // Remover el handler temporalmente para evitar duplicación
+      newCanvas.removeEventListener("drop", dropHandler);
+
+      const rowType = e.dataTransfer.getData("text/plain");
+      const elementType = e.dataTransfer.getData(
+        "application/x-builder-element"
+      );
+
+      console.log("Drop event data:", { rowType, elementType });
+
+      if (rowType?.startsWith("row-")) {
+        this.addRow(rowType);
+      } else if (elementType) {
+        const dropTarget = e.target.closest(".column-dropzone");
+        if (dropTarget) {
+          const rowEl = dropTarget.closest(".builder-row");
+          const columnEl = dropTarget.closest(".builder-column");
+          if (rowEl && columnEl) {
+            this.addElementToColumn(
+              rowEl.dataset.id,
+              columnEl.dataset.id,
+              elementType
+            );
+          }
+        }
+      }
+
+      // Re-añadir el handler después de un pequeño delay
+      setTimeout(() => {
+        newCanvas.addEventListener("drop", dropHandler);
+      }, 0);
+    };
+
+    newCanvas.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      newCanvas.classList.add("dragover");
+    });
+
+    newCanvas.addEventListener("dragleave", () => {
+      newCanvas.classList.remove("dragover");
+    });
+
+    newCanvas.addEventListener("drop", dropHandler);
+  }
+
+  // Remover los event listeners globales
+  setupEventSubscriptions() {
+    // Remover los event listeners de drag globales
     eventBus.on("stateChanged", (newState, prevState) => {
       console.log("🔍 State changed", {
         prevRows: prevState?.rows?.length,
@@ -49,50 +110,13 @@ export class BuilderCanvas extends HTMLElement {
       });
     });
 
-    // Debug store state
-    const debugStoreState = () => {
-      const state = store.getState();
-      console.log("🔄 Current store state:", {
-        rowCount: state.rows?.length,
-        hasGlobalSettings: !!state.globalSettings,
-        selectedRow: state.selectedRow?.id,
-      });
-    };
-
-    // Monitor state changes
+    // Solo mantener los listeners necesarios para el estado
     this.unsubscribeStore = store.subscribe((newState, prevState) => {
       console.log("🔄 Store state changed:", {
         rowsChanged: newState.rows !== prevState?.rows,
         settingsChanged: newState.globalSettings !== prevState?.globalSettings,
       });
-      debugStoreState();
     });
-
-    eventBus.on("rowUpdated", (data) => {
-      console.log("🔄 Canvas - Row updated event received:", data);
-      const state = store.getState();
-      const updatedRows = state.rows.map((row) =>
-        row.id === data.rowId ? { ...row, ...data } : row
-      );
-      store.updateRows(updatedRows);
-    });
-
-    // Add event diagnostics
-    window.addEventListener(
-      "dragstart",
-      (e) => {
-        console.log("🔄 Global dragstart:", e.target.dataset?.id);
-      },
-      true
-    );
-
-    window.addEventListener(
-      "drop",
-      (e) => {
-        console.log("🔄 Global drop:", e.target.dataset?.id);
-      },
-      true
-    );
   }
 
   setupRowEvents() {
@@ -183,7 +207,7 @@ export class BuilderCanvas extends HTMLElement {
       console.log("🎨 Canvas - Loaded data:", savedData);
 
       const initialState = {
-        pageId,
+        pageId, // <-- Importante: Asegurarnos de incluir el pageId
         rows: [],
         globalSettings: {
           maxWidth: "1200px",
@@ -216,7 +240,6 @@ export class BuilderCanvas extends HTMLElement {
       console.log("🎨 Canvas - State updated:", store.getState());
     } catch (error) {
       console.error("🎨 Canvas - Error loading page data:", error);
-      // Asegurar que tenemos un estado válido incluso en caso de error
       store.setState({
         pageId,
         rows: [],
@@ -271,6 +294,8 @@ export class BuilderCanvas extends HTMLElement {
   // En builder-canvas.js, añadir estos métodos:
 
   handleUndo() {
+    if (this._isUndoRedoOperation) return;
+
     const previousState = this.history.undo();
     if (previousState) {
       this._isUndoRedoOperation = true;
@@ -280,6 +305,8 @@ export class BuilderCanvas extends HTMLElement {
   }
 
   handleRedo() {
+    if (this._isUndoRedoOperation) return;
+
     const nextState = this.history.redo();
     if (nextState) {
       this._isUndoRedoOperation = true;
@@ -330,23 +357,21 @@ export class BuilderCanvas extends HTMLElement {
 
   emitContentChanged(suppressEvent = false) {
     const data = this.getEditorData();
-    console.log("Builder Canvas - Emitting content changed:", {
-      suppressEvent,
-      isUndoRedo: this._isUndoRedoOperation,
-      data,
-    });
+    console.log("Emitting content changed, data:", data); // Añadir log
 
-    // Guardar en CanvasStorage si tenemos pageId
-    const state = store.getState();
-    if (state.pageId) {
-      CanvasStorage.saveCanvas(state.pageId, data);
-    }
-
-    // Si no estamos suprimiendo eventos y no es una operación undo/redo
     if (!suppressEvent && !this._isUndoRedoOperation) {
-      // Actualizar historial y notificar
       this.history.pushState(data);
       eventBus.emit("contentChanged", data);
+    }
+
+    // Guardar si hay pageId
+    const state = store.getState();
+    if (state.pageId) {
+      // <-- El problema está aquí: estamos usando state.pageId
+      console.log("Saving to storage, pageId:", state.pageId);
+      CanvasStorage.saveCanvas(state.pageId, data);
+    } else {
+      console.warn("No pageId found in state");
     }
   }
 
@@ -454,18 +479,13 @@ export class BuilderCanvas extends HTMLElement {
       element.draggable = true;
 
       element.addEventListener("dragstart", (e) => {
-        console.log("🔍 Element dragstart:", element.dataset.type);
         e.stopPropagation();
         e.dataTransfer.effectAllowed = "copy";
-
-        // Diferenciar el tipo de elemento que se está arrastrando
+        // Solo seteamos un tipo de dato
         e.dataTransfer.setData(
           "application/x-builder-element",
           element.dataset.type
         );
-        e.dataTransfer.setData("text/plain", element.dataset.type);
-
-        element.classList.add("dragging");
       });
 
       element.addEventListener("dragend", () => {
@@ -571,77 +591,6 @@ export class BuilderCanvas extends HTMLElement {
     });
   }
 
-  setupDropZone() {
-    const canvas = this.shadowRoot.querySelector(".canvas-dropzone");
-    if (!canvas) {
-      console.error("🔍 Canvas dropzone not found");
-      return;
-    }
-
-    console.log("🔍 Setting up canvas dropzone");
-
-    canvas.addEventListener("dragover", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-
-      console.log("🔍 Dragover on canvas", {
-        types: e.dataTransfer.types,
-        target: e.target.className,
-      });
-
-      canvas.classList.add("dragover");
-    });
-
-    canvas.addEventListener("dragleave", (e) => {
-      canvas.classList.remove("dragover");
-    });
-
-    canvas.addEventListener("drop", async (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      canvas.classList.remove("dragover");
-
-      console.log("🔍 Drop on canvas", {
-        dataTransfer: e.dataTransfer.types,
-      });
-
-      // Verificar si es una fila nueva desde el sidebar
-      const rowType = e.dataTransfer.getData("text/plain");
-      if (rowType && rowType.startsWith("row-")) {
-        console.log("🔍 Adding new row:", rowType);
-        this.addRow(rowType);
-        return;
-      }
-
-      // Verificar si es una fila existente siendo reordenada
-      const existingRowId = e.dataTransfer.getData("application/x-row");
-      if (existingRowId) {
-        console.log("🔍 Reordering existing row:", existingRowId);
-        this.handleRowDrop(e);
-        return;
-      }
-
-      // Verificar si es un elemento
-      const elementType = e.dataTransfer.getData(
-        "application/x-builder-element"
-      );
-      if (elementType) {
-        console.log("🔍 Adding new element:", elementType);
-        const dropTarget = e.target.closest(".column-dropzone");
-        if (dropTarget) {
-          const rowEl = dropTarget.closest(".builder-row");
-          const columnEl = dropTarget.closest(".builder-column");
-          if (rowEl && columnEl) {
-            this.addElementToColumn(
-              rowEl.dataset.id,
-              columnEl.dataset.id,
-              elementType
-            );
-          }
-        }
-      }
-    });
-  }
   addElementToColumn(rowId, columnId, elementType) {
     if (!rowId || !columnId || !elementType) {
       console.warn("Missing required parameters:", {
@@ -692,43 +641,50 @@ export class BuilderCanvas extends HTMLElement {
     });
   }
 
-  handleRowDrop(e) {
-    const rowId = e.dataTransfer.getData("application/x-row");
-    if (!rowId) return;
-
-    console.log("🔍 Handling row reorder:", rowId);
-
+  handleRowDrop(e, draggedRowId) {
     const state = store.getState();
     const currentRows = [...state.rows];
-    const draggedRowIndex = currentRows.findIndex((row) => row.id === rowId);
+    const draggedRowIndex = currentRows.findIndex(
+      (row) => row.id === draggedRowId
+    );
 
-    if (draggedRowIndex === -1) return;
+    if (draggedRowIndex === -1) {
+      console.warn("Dragged row not found:", draggedRowId);
+      return;
+    }
 
+    // Remove dragged row
     const [draggedRow] = currentRows.splice(draggedRowIndex, 1);
 
-    // Si se suelta sobre otra fila, insertar antes o después
+    // Find target position
     const targetRow = e.target.closest(".builder-row");
+    let newIndex;
+
     if (targetRow) {
-      const targetIndex = currentRows.findIndex(
-        (row) => row.id === targetRow.dataset.id
-      );
+      const targetId = targetRow.dataset.id;
+      const targetIndex = currentRows.findIndex((row) => row.id === targetId);
       const rect = targetRow.getBoundingClientRect();
       const insertAfter = e.clientY > rect.top + rect.height / 2;
 
-      currentRows.splice(
-        insertAfter ? targetIndex + 1 : targetIndex,
-        0,
-        draggedRow
+      newIndex = insertAfter ? targetIndex + 1 : targetIndex;
+      console.log(
+        `🎯 Drop position: ${insertAfter ? "after" : "before"} row ${targetId}`
       );
     } else {
-      // Si se suelta en un área vacía, añadir al final
-      currentRows.push(draggedRow);
+      newIndex = currentRows.length;
+      console.log("🎯 Dropping at end of list");
     }
 
+    // Insert row at new position
+    currentRows.splice(newIndex, 0, draggedRow);
+
+    console.log("Updating store with new row order");
     store.setState({
       ...state,
       rows: currentRows,
     });
+
+    this.emitContentChanged();
   }
 
   handleRowDrop() {
@@ -966,36 +922,72 @@ export class BuilderCanvas extends HTMLElement {
   }
 
   // En builder-canvas.js, añadir al setupRowControls:
-
   setupRowControls() {
+    console.log("🔧 Setting up row controls");
     const rows = this.shadowRoot.querySelectorAll(".builder-row");
 
     rows.forEach((row) => {
       const rowId = row.dataset.id;
 
-      // Duplicate button
-      const duplicateBtn = row.querySelector(".row-duplicate");
-      if (duplicateBtn) {
-        duplicateBtn.addEventListener("click", (e) => {
-          e.stopPropagation();
-          this.duplicateRow(rowId);
-        });
-      }
-
       // Delete button
       const deleteBtn = row.querySelector(".row-delete");
       if (deleteBtn) {
-        deleteBtn.addEventListener("click", (e) => {
+        deleteBtn.onclick = (e) => {
+          e.preventDefault();
           e.stopPropagation();
-          this.deleteRow(rowId);
-        });
+          console.log("Delete clicked for row:", rowId); // Log específico
+
+          if (confirm(this.i18n.t("common.confirmation.delete"))) {
+            const state = store.getState();
+            store.setState({
+              ...state,
+              rows: state.rows.filter((r) => r.id !== rowId),
+            });
+            this.emitContentChanged();
+          }
+        };
       }
 
-      // Row selection
-      row.addEventListener("click", (e) => {
-        if (e.target.closest(".row-controls")) return;
-        this.selectRow(rowId);
-      });
+      // Duplicate button
+      const duplicateBtn = row.querySelector(".row-duplicate");
+      if (duplicateBtn) {
+        duplicateBtn.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          console.log("Duplicate clicked for row:", rowId); // Log específico
+
+          const state = store.getState();
+          const sourceRow = state.rows.find((r) => r.id === rowId);
+          if (sourceRow) {
+            const newRow = {
+              ...sourceRow,
+              id: `row-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+              columns: sourceRow.columns.map((col) => ({
+                ...col,
+                id: `column-${Date.now()}-${Math.random()
+                  .toString(36)
+                  .slice(2, 9)}`,
+                elements: col.elements.map((elem) => ({
+                  ...elem,
+                  id: `element-${Date.now()}-${Math.random()
+                    .toString(36)
+                    .slice(2, 9)}`,
+                })),
+              })),
+            };
+
+            const updatedRows = [...state.rows];
+            const rowIndex = state.rows.findIndex((r) => r.id === rowId);
+            updatedRows.splice(rowIndex + 1, 0, newRow);
+
+            store.setState({
+              ...state,
+              rows: updatedRows,
+            });
+            this.emitContentChanged();
+          }
+        };
+      }
     });
   }
 
@@ -1348,7 +1340,6 @@ export class BuilderCanvas extends HTMLElement {
       <div class="builder-row ${row.selected ? "selected" : ""}" 
            data-id="${row.id}" 
            data-type="${row.type}"
-           draggable="true"
            style="${styles}">
         <div class="row-handle">
           <builder-icon name="move" size="16"></builder-icon>
@@ -1388,6 +1379,95 @@ export class BuilderCanvas extends HTMLElement {
     `;
   }
 
+  // En builder-canvas.js
+  setupDragAndDrop() {
+    console.log("🔄 Setting up drag and drop");
+    const canvas = this.shadowRoot.querySelector(".canvas-dropzone");
+    if (!canvas) return;
+
+    // Clean up by replacing canvas
+    const newCanvas = canvas.cloneNode(true);
+    canvas.parentNode.replaceChild(newCanvas, canvas);
+
+    // Row drop handling
+    newCanvas.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      newCanvas.classList.add("dragover");
+    });
+
+    newCanvas.addEventListener("dragleave", () => {
+      newCanvas.classList.remove("dragover");
+    });
+
+    newCanvas.addEventListener("drop", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log("🎯 Drop event detected");
+
+      newCanvas.classList.remove("dragover");
+
+      // Handle row drops
+      const rowId = e.dataTransfer.getData("application/x-row");
+      if (rowId) {
+        console.log(`🔄 Row drop detected: ${rowId}`);
+        this.handleRowDrop(e, rowId);
+        return;
+      }
+
+      // Handle new element drops
+      const elementType = e.dataTransfer.getData(
+        "application/x-builder-element"
+      );
+      if (elementType) {
+        console.log(`🔄 Element drop detected: ${elementType}`);
+        const dropTarget = e.target.closest(".column-dropzone");
+        if (dropTarget) {
+          const rowEl = dropTarget.closest(".builder-row");
+          const columnEl = dropTarget.closest(".builder-column");
+          if (rowEl && columnEl) {
+            this.addElementToColumn(
+              rowEl.dataset.id,
+              columnEl.dataset.id,
+              elementType
+            );
+          }
+        }
+      }
+    });
+
+    // Setup row dragging
+    const rows = this.shadowRoot.querySelectorAll(".builder-row");
+    rows.forEach((row) => {
+      const handle = row.querySelector(".row-handle");
+      if (handle) {
+        handle.addEventListener("mousedown", () => {
+          row.draggable = true;
+        });
+
+        handle.addEventListener("mouseup", () => {
+          row.draggable = false;
+        });
+
+        row.addEventListener("dragstart", (e) => {
+          e.stopPropagation();
+          console.log(`🔄 Row drag started: ${row.dataset.id}`);
+          row.classList.add("row-dragging");
+          e.dataTransfer.setData("application/x-row", row.dataset.id);
+        });
+
+        row.addEventListener("dragend", () => {
+          console.log(`🔄 Row drag ended: ${row.dataset.id}`);
+          row.classList.remove("row-dragging");
+          row.draggable = false;
+          this.removeAllDragoverClasses();
+        });
+      }
+    });
+
+    console.log("🔄 Drag and drop setup completed");
+  }
+
   setupRowEventListeners() {
     const rows = this.shadowRoot.querySelectorAll(".builder-row");
 
@@ -1414,7 +1494,6 @@ export class BuilderCanvas extends HTMLElement {
   }
 
   selectRow(rowId) {
-    // Obtener estado actual
     const state = store.getState();
     const rows = state.rows || [];
 
@@ -1441,9 +1520,6 @@ export class BuilderCanvas extends HTMLElement {
     eventBus.emit("rowSelected", {
       row: rows.find((r) => r.id === rowId),
     });
-
-    // Re-renderizar
-    this.render();
   }
 
   handleRowUpdated(event) {

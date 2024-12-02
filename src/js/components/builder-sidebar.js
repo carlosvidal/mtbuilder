@@ -410,54 +410,47 @@ export class BuilderSidebar extends HTMLElement {
   }
 
   setupDragAndDrop() {
-    console.log("🎨 Sidebar - Setting up drag and drop");
+    // Limpiar eventos existentes
+    const elements = this.shadowRoot.querySelectorAll(".builder-element");
+    elements.forEach((element) => {
+      const newElement = element.cloneNode(true);
+      element.parentNode.replaceChild(newElement, element);
+    });
 
-    // Setup row dragging
-    this.shadowRoot
-      .querySelectorAll('.builder-element[data-type^="row-"]')
-      .forEach((element) => {
-        console.log("🎨 Setting up row element:", element.dataset.type);
+    // Configurar nuevos eventos
+    this.shadowRoot.querySelectorAll(".builder-element").forEach((element) => {
+      element.draggable = true;
 
-        element.setAttribute("draggable", "true");
-        element.addEventListener("dragstart", (e) => {
-          console.log("🎨 Row dragstart:", {
-            type: element.dataset.type,
-          });
+      const dragStartHandler = (e) => {
+        e.stopPropagation();
+        e.stopImmediatePropagation();
 
+        // Evitar duplicación de eventos
+        element.removeEventListener("dragstart", dragStartHandler);
+
+        if (element.dataset.type.startsWith("row-")) {
           e.dataTransfer.setData("text/plain", element.dataset.type);
-          e.dataTransfer.effectAllowed = "copy";
-
-          element.classList.add("dragging");
-        });
-
-        element.addEventListener("dragend", () => {
-          element.classList.remove("dragging");
-        });
-      });
-
-    // Setup element dragging
-    this.shadowRoot
-      .querySelectorAll('.builder-element:not([data-type^="row-"])')
-      .forEach((element) => {
-        element.setAttribute("draggable", "true");
-
-        element.addEventListener("dragstart", (e) => {
-          console.log("🎨 Element dragstart:", element.dataset.type);
-
+        } else {
           e.dataTransfer.setData(
             "application/x-builder-element",
             element.dataset.type
           );
-          e.dataTransfer.setData("text/plain", element.dataset.type);
-          e.dataTransfer.effectAllowed = "copy";
+        }
 
-          element.classList.add("dragging");
-        });
+        element.classList.add("dragging");
 
-        element.addEventListener("dragend", () => {
-          element.classList.remove("dragging");
-        });
+        // Re-añadir el listener después de un pequeño delay
+        setTimeout(() => {
+          element.addEventListener("dragstart", dragStartHandler);
+        }, 0);
+      };
+
+      element.addEventListener("dragstart", dragStartHandler);
+
+      element.addEventListener("dragend", () => {
+        element.classList.remove("dragging");
       });
+    });
   }
 
   // Método para configurar los event listeners del tab principal
