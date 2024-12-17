@@ -5,29 +5,59 @@ export class CanvasStorage {
   }
 
   static saveCanvas(pageId, data) {
-    console.log("Saving canvas for pageId:", pageId, "Data:", data);
     if (!pageId) return;
 
     try {
       const key = this.getStorageKey(pageId);
-      const serializedData = JSON.stringify(data);
+      // Asegurar que los estilos estén presentes en las filas
+      const processedData = {
+        ...data,
+        rows: data.rows.map((row) => ({
+          ...row,
+          styles: row.styles || {},
+          columns: row.columns.map((column) => ({
+            ...column,
+            elements: column.elements.map((element) => ({
+              ...element,
+              styles: element.styles || {},
+            })),
+          })),
+        })),
+      };
+
+      const serializedData = JSON.stringify(processedData);
       localStorage.setItem(key, serializedData);
-      console.log("Canvas saved successfully:", { key, data });
+      console.log("Canvas saved successfully:", { key, data: processedData });
     } catch (error) {
       console.error("Error saving canvas:", error);
     }
   }
 
   static loadCanvas(pageId) {
-    console.log("Loading canvas for pageId:", pageId);
     if (!pageId) return null;
 
     try {
       const key = this.getStorageKey(pageId);
       const savedData = localStorage.getItem(key);
-      const parsedData = savedData ? JSON.parse(savedData) : null;
-      console.log("Loaded canvas data:", parsedData);
-      return parsedData;
+      if (!savedData) return null;
+
+      const parsedData = JSON.parse(savedData);
+
+      // Asegurar que los estilos existan
+      return {
+        ...parsedData,
+        rows: parsedData.rows.map((row) => ({
+          ...row,
+          styles: row.styles || {},
+          columns: row.columns.map((column) => ({
+            ...column,
+            elements: column.elements.map((element) => ({
+              ...element,
+              styles: element.styles || {},
+            })),
+          })),
+        })),
+      };
     } catch (error) {
       console.error("Error loading canvas:", error);
       return null;

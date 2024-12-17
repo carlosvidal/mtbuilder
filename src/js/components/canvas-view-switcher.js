@@ -280,7 +280,17 @@ class CanvasViewSwitcher extends HTMLElement {
   updateViews() {
     const state = store.getState();
     const data = {
-      rows: state.rows || [],
+      rows: state.rows.map((row) => ({
+        ...row,
+        styles: row.styles || {}, // Asegurar que los estilos estén presentes
+        columns: row.columns.map((column) => ({
+          ...column,
+          elements: column.elements.map((element) => ({
+            ...element,
+            styles: element.styles || {},
+          })),
+        })),
+      })),
       globalSettings: state.globalSettings || {},
     };
 

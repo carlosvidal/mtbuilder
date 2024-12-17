@@ -192,15 +192,35 @@ export class RowEditor extends BaseElementEditor {
   updateRowStyle(property, value) {
     if (!this.currentRow) return;
 
-    this.currentRow.styles = {
-      ...this.currentRow.styles,
-      [property]: value,
-    };
+    // Crear copia profunda de los estilos actuales
+    const updatedStyles = JSON.parse(
+      JSON.stringify(this.currentRow.styles || {})
+    );
 
+    // Asegurarnos de que los colores incluyan #
+    if (property.toLowerCase().includes("color")) {
+      value = value.startsWith("#") ? value : `#${value}`;
+    }
+
+    updatedStyles[property] = value;
+
+    console.log("🔧 Row Editor - Updating style:", {
+      rowId: this.currentRow.id,
+      property,
+      value,
+      updatedStyles,
+    });
+
+    this.currentRow.styles = updatedStyles;
     this.emitUpdateEvent();
   }
 
   emitUpdateEvent() {
+    console.log("🔄 Row Editor - Emitting update:", {
+      rowId: this.currentRow.id,
+      styles: this.currentRow.styles,
+    });
+
     if (!this.currentRow) return;
 
     // Emitir el evento una sola vez al bus global de eventos

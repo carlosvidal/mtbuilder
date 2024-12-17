@@ -104,6 +104,22 @@ export class ExportUtils {
       <div class="page-wrapper" style="${wrapperStyles}">
         ${data.rows
           .map((row) => {
+            const rowStyles = Object.entries(row.styles || {})
+              .map(([key, value]) => {
+                const cssKey = key.replace(/([A-Z])/g, "-$1").toLowerCase();
+                return `${cssKey}: ${value}`;
+              })
+              .join(";");
+
+            const baseRowStyles = [
+              "display: flex",
+              "margin: 0 auto",
+              "max-width: 1200px",
+              rowStyles, // estilos personalizados de la fila
+            ]
+              .filter(Boolean)
+              .join("; ");
+
             const columns = row.columns
               .map((column) => {
                 const elements = column.elements
@@ -178,7 +194,7 @@ export class ExportUtils {
               })
               .join("\n");
 
-            return `<div class="row" style="display: flex; margin: 0 auto; max-width: 1200px;">${columns}</div>`;
+            return `<div class="row" style="${baseRowStyles}">${columns}</div>`;
           })
           .join("\n")}
       </div>`;
@@ -189,11 +205,14 @@ export class ExportUtils {
 
     return data.rows
       .map((row) => {
+        // Generar estilos de la fila
+        const rowStyles = this.generateStyleString(row.styles || {});
+
         const columns = row.columns
           .map((column) => {
             const elements = column.elements
               .map((element) => {
-                const elementStyles = this.generateInlineStyles(
+                const elementStyles = this.generateStyleString(
                   element.styles || {}
                 );
 
@@ -266,9 +285,28 @@ export class ExportUtils {
           })
           .join("\n");
 
-        return `<div class="container"><div class="row">${columns}</div></div>`;
+        return `<div class="row" style="${rowStyles}">${columns}</div>`;
       })
       .join("\n");
+  }
+
+  static generateStyleString(styles) {
+    return Object.entries(styles || {})
+      .map(([key, value]) => {
+        const cssKey = key.replace(/([A-Z])/g, "-$1").toLowerCase();
+        // Agregar 'px' a valores numéricos de propiedades que lo requieran
+        if (
+          typeof value === "number" &&
+          (cssKey.includes("width") ||
+            cssKey.includes("height") ||
+            cssKey.includes("margin") ||
+            cssKey.includes("padding"))
+        ) {
+          value = `${value}px`;
+        }
+        return `${cssKey}: ${value}`;
+      })
+      .join(";");
   }
 
   static generateInlineStyles(styles) {
