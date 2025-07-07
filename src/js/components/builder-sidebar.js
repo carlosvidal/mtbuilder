@@ -28,6 +28,7 @@ export class BuilderSidebar extends HTMLElement {
       { type: "text" },
       { type: "image" },
       { type: "button" },
+      { type: "link" },
       { type: "table" },
       { type: "list" },
       { type: "video" },
@@ -48,22 +49,10 @@ export class BuilderSidebar extends HTMLElement {
 
   setupEventSubscriptions() {
     // Remove old event listeners
-    window.builderEvents.removeEventListener(
-      "rowSelected",
-      this.rowSelectedHandler
-    );
-    window.builderEvents.removeEventListener(
-      "rowDeselected",
-      this.rowDeselectedHandler
-    );
-    window.builderEvents.removeEventListener(
-      "elementSelected",
-      this.elementSelectedHandler
-    );
-    window.builderEvents.removeEventListener(
-      "elementDeselected",
-      this.elementDeselectedHandler
-    );
+    eventBus.off("rowSelected", this.rowSelectedHandler);
+    eventBus.off("rowDeselected", this.rowDeselectedHandler);
+    eventBus.off("elementSelected", this.elementSelectedHandler);
+    eventBus.off("elementDeselected", this.elementDeselectedHandler);
 
     // Create handlers
     this.rowSelectedHandler = (e) => {
@@ -82,12 +71,17 @@ export class BuilderSidebar extends HTMLElement {
       this.render();
     };
 
-    this.elementSelectedHandler = (e) => {
-      console.log("Element selected event received:", e.detail);
-      this.selectedElement = e.detail;
+    this.elementSelectedHandler = (data) => {
+      console.log("🔊 Sidebar - Element selected event received:", data?.type, data?.id);
+      console.log("🔊 Sidebar - Event data:", data);
+      
+      this.selectedElement = data;
       this.showingEditor = true;
       this.showingRowEditor = false;
       this.selectedRow = null;
+      
+      console.log("🔊 Sidebar - Updated selectedElement:", this.selectedElement?.type);
+      
       this.render();
     };
 
@@ -98,23 +92,11 @@ export class BuilderSidebar extends HTMLElement {
       this.render();
     };
 
-    // Add new event listeners
-    window.builderEvents.addEventListener(
-      "rowSelected",
-      this.rowSelectedHandler
-    );
-    window.builderEvents.addEventListener(
-      "rowDeselected",
-      this.rowDeselectedHandler
-    );
-    window.builderEvents.addEventListener(
-      "elementSelected",
-      this.elementSelectedHandler
-    );
-    window.builderEvents.addEventListener(
-      "elementDeselected",
-      this.elementDeselectedHandler
-    );
+    // Add event listeners
+    eventBus.on("rowSelected", this.rowSelectedHandler);
+    eventBus.on("rowDeselected", this.rowDeselectedHandler);
+    eventBus.on("elementSelected", this.elementSelectedHandler);
+    eventBus.on("elementDeselected", this.elementDeselectedHandler);
   }
 
   handleStateChange(newState, prevState) {
@@ -320,9 +302,7 @@ export class BuilderSidebar extends HTMLElement {
   connectedCallback() {
     console.log("🏁 Sidebar - Connected");
 
-    // Configurar event listeners y suscripciones
-    this.setupRowSelection();
-    this.setupElementSelection();
+    // Configurar event listeners y suscripciones - now handled in setupEventSubscriptions
 
     // Renderizar inicialmente
     this.render();
@@ -338,62 +318,25 @@ export class BuilderSidebar extends HTMLElement {
     });
   }
 
-  setupRowSelection() {
-    // Limpiar suscripciones anteriores
-    eventBus.off("rowSelected");
-    eventBus.off("rowDeselected");
-
-    // Suscribirse a nuevos eventos
-    eventBus.on("rowSelected", ({ row }) => {
-      console.log("Row selected:", row);
-      this.selectedRow = row;
-      this.showingRowEditor = true;
-      this.showingEditor = false;
-      this.selectedElement = null;
-      this.render();
-    });
-
-    eventBus.on("rowDeselected", () => {
-      console.log("Row deselected");
-      this.selectedRow = null;
-      this.showingRowEditor = false;
-      this.render();
-    });
-  }
 
   disconnectedCallback() {
     // Clean up subscriptions
-    this.unsubscribeStore();
-    eventBus.off("rowSelected");
-    eventBus.off("rowDeselected");
-    eventBus.off("elementSelected");
-    eventBus.off("elementDeselected");
+    if (this.unsubscribeStore) {
+      this.unsubscribeStore();
+    }
+    
+    // Clean up event listeners with handlers
+    eventBus.off("rowSelected", this.rowSelectedHandler);
+    eventBus.off("rowDeselected", this.rowDeselectedHandler);
+    eventBus.off("elementSelected", this.elementSelectedHandler);
+    eventBus.off("elementDeselected", this.elementDeselectedHandler);
+    eventBus.off("globalSettingsUpdated", this.globalSettingsUpdateHandler);
+    
+    // Clean up drag and drop handlers
+    // WeakMap se limpia automáticamente cuando los elementos se eliminan del DOM
+    this._elementHandlers = null;
   }
 
-  setupElementSelection() {
-    this.selectionListener = (e) => {
-      this.selectedElement = e.detail;
-      this.showingEditor = true;
-      this.showingRowEditor = false;
-      this.selectedRow = null;
-      this.render();
-    };
-
-    this.deselectionListener = () => {
-      this.selectedElement = null;
-      this.showingEditor = false;
-      this.render();
-    };
-
-    window.builderEvents.addEventListener(
-      "elementSelected",
-      this.selectionListener
-    );
-    window.builderEvents.addEventListener(
-      "elementDeselected",
-      this.deselectionListener
-    );
-  }
 
   setupTabListeners() {
     this.shadowRoot.querySelectorAll(".tab").forEach((tab) => {
@@ -410,12 +353,14 @@ export class BuilderSidebar extends HTMLElement {
   }
 
   setupDragAndDrop() {
-    // Limpiar eventos existentes
-    const elements = this.shadowRoot.querySelectorAll(".builder-element");
-    elements.forEach((element) => {
-      const newElement = element.cloneNode(true);
-      element.parentNode.replaceChild(newElement, element);
-    });
+    // Limpiar handlers existentes
+    if (this._elementHandlers && this._elementHandlers instanceof WeakMap) {
+      // WeakMap no tiene forEach, usar un approach diferente
+      // Los WeakMaps se limpian automáticamente cuando los elementos se eliminan
+    }
+    
+    // Siempre inicializar/reinicializar el WeakMap
+    this._elementHandlers = new WeakMap();
 
     // Configurar nuevos eventos
     this.shadowRoot.querySelectorAll(".builder-element").forEach((element) => {
@@ -424,9 +369,6 @@ export class BuilderSidebar extends HTMLElement {
       const dragStartHandler = (e) => {
         e.stopPropagation();
         e.stopImmediatePropagation();
-
-        // Evitar duplicación de eventos
-        element.removeEventListener("dragstart", dragStartHandler);
 
         if (element.dataset.type.startsWith("row-")) {
           e.dataTransfer.setData("text/plain", element.dataset.type);
@@ -438,18 +380,20 @@ export class BuilderSidebar extends HTMLElement {
         }
 
         element.classList.add("dragging");
-
-        // Re-añadir el listener después de un pequeño delay
-        setTimeout(() => {
-          element.addEventListener("dragstart", dragStartHandler);
-        }, 0);
       };
 
-      element.addEventListener("dragstart", dragStartHandler);
-
-      element.addEventListener("dragend", () => {
+      const dragEndHandler = () => {
         element.classList.remove("dragging");
+      };
+
+      // Guardar handlers para limpieza posterior
+      this._elementHandlers.set(element, {
+        dragstart: dragStartHandler,
+        dragend: dragEndHandler
       });
+
+      element.addEventListener("dragstart", dragStartHandler);
+      element.addEventListener("dragend", dragEndHandler);
     });
   }
 
@@ -464,15 +408,11 @@ export class BuilderSidebar extends HTMLElement {
     if (maxWidthInput) {
       maxWidthInput.addEventListener("input", (e) => {
         console.log("📝 Sidebar - maxWidth changed:", e.target.value);
-        window.builderEvents.dispatchEvent(
-          new CustomEvent("globalSettingsUpdated", {
-            detail: {
-              settings: {
-                maxWidth: `${e.target.value}px`,
-              },
-            },
-          })
-        );
+        eventBus.emit("globalSettingsUpdated", {
+          settings: {
+            maxWidth: `${e.target.value}px`,
+          },
+        });
       });
     }
 
@@ -480,15 +420,11 @@ export class BuilderSidebar extends HTMLElement {
     const paddingInput = this.shadowRoot.getElementById("paddingInput");
     if (paddingInput) {
       paddingInput.addEventListener("input", (e) => {
-        window.builderEvents.dispatchEvent(
-          new CustomEvent("globalSettingsUpdated", {
-            detail: {
-              settings: {
-                padding: `${e.target.value}px`,
-              },
-            },
-          })
-        );
+        eventBus.emit("globalSettingsUpdated", {
+          settings: {
+            padding: `${e.target.value}px`,
+          },
+        });
       });
     }
 
@@ -498,15 +434,11 @@ export class BuilderSidebar extends HTMLElement {
     );
     if (backgroundColorInput) {
       backgroundColorInput.addEventListener("input", (e) => {
-        window.builderEvents.dispatchEvent(
-          new CustomEvent("globalSettingsUpdated", {
-            detail: {
-              settings: {
-                backgroundColor: e.target.value,
-              },
-            },
-          })
-        );
+        eventBus.emit("globalSettingsUpdated", {
+          settings: {
+            backgroundColor: e.target.value,
+          },
+        });
       });
     }
 
@@ -514,15 +446,11 @@ export class BuilderSidebar extends HTMLElement {
     const fontFamilySelect = this.shadowRoot.getElementById("fontFamilySelect");
     if (fontFamilySelect) {
       fontFamilySelect.addEventListener("change", (e) => {
-        window.builderEvents.dispatchEvent(
-          new CustomEvent("globalSettingsUpdated", {
-            detail: {
-              settings: {
-                fontFamily: e.target.value,
-              },
-            },
-          })
-        );
+        eventBus.emit("globalSettingsUpdated", {
+          settings: {
+            fontFamily: e.target.value,
+          },
+        });
       });
     }
   }
@@ -531,6 +459,8 @@ export class BuilderSidebar extends HTMLElement {
     console.log("🎨 Sidebar - Rendering", {
       showingEditor: this.showingEditor,
       showingRowEditor: this.showingRowEditor,
+      selectedElement: this.selectedElement?.type,
+      selectedRow: this.selectedRow?.id
     });
 
     this.shadowRoot.innerHTML = `
@@ -547,11 +477,21 @@ export class BuilderSidebar extends HTMLElement {
     `;
 
     requestAnimationFrame(() => {
+      console.log("🎨 Sidebar - requestAnimationFrame:", {
+        showingEditor: this.showingEditor,
+        selectedElement: !!this.selectedElement,
+        showingRowEditor: this.showingRowEditor,
+        selectedRow: !!this.selectedRow
+      });
+      
       if (this.showingEditor && this.selectedElement) {
+        console.log("🎨 Sidebar - Setting up element editor");
         this.setupElementEditor();
       } else if (this.showingRowEditor && this.selectedRow) {
+        console.log("🎨 Sidebar - Setting up row editor");
         this.setupRowEditor();
       } else {
+        console.log("🎨 Sidebar - Setting up tabs and drag");
         this.setupTabListeners();
         this.setupDragAndDrop();
       }
@@ -635,8 +575,17 @@ export class BuilderSidebar extends HTMLElement {
     const editor = this.shadowRoot.querySelector("element-editor");
     const backButton = this.shadowRoot.querySelector("#backButton");
 
+    console.log("🔧 Setting up element editor:", {
+      editor: !!editor,
+      selectedElement: this.selectedElement,
+      elementType: this.selectedElement?.type
+    });
+
     if (editor && this.selectedElement) {
+      console.log("🔧 Calling setElement on editor");
       editor.setElement(this.selectedElement);
+    } else {
+      console.log("🔧 Missing editor or selectedElement", { editor: !!editor, selectedElement: !!this.selectedElement });
     }
 
     if (backButton) {

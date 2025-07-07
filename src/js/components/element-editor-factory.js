@@ -1,6 +1,7 @@
 import { HeadingEditor } from "./editors/heading-editor.js";
 import { ImageEditor } from "./editors/image-editor.js";
 import { ButtonEditor } from "./editors/button-editor.js";
+import { LinkEditor } from "./editors/link-editor.js";
 import { DividerEditor } from "./editors/divider-editor.js";
 import { HtmlEditor } from "./editors/html-editor.js";
 import { TextEditor } from "./editors/text-editor.js";
@@ -18,6 +19,8 @@ export class ElementEditorFactory {
         return new ImageEditor();
       case "button":
         return new ButtonEditor();
+      case "link":
+        return new LinkEditor();
       case "divider":
         return new DividerEditor();
       case "html":

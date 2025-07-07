@@ -3,6 +3,7 @@ import { ElementEditor } from "./element-editor.js";
 import { HeadingEditor } from "./editors/heading-editor.js";
 import { ImageEditor } from "./editors/image-editor.js";
 import { ButtonEditor } from "./editors/button-editor.js";
+import { LinkEditor } from "./editors/link-editor.js";
 import { DividerEditor } from "./editors/divider-editor.js";
 import { HtmlEditor } from "./editors/html-editor.js";
 import { TextEditor } from "./editors/text-editor.js";
@@ -18,6 +19,7 @@ export function registerEditors() {
     "heading-editor": HeadingEditor,
     "image-editor": ImageEditor,
     "button-editor": ButtonEditor,
+    "link-editor": LinkEditor,
     "divider-editor": DividerEditor,
     "html-editor": HtmlEditor,
     "text-editor": TextEditor,

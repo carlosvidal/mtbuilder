@@ -4,9 +4,7 @@ class PageBuilder extends HTMLElement {
     super();
     this.attachShadow({ mode: "open" });
 
-    if (!window.builderEvents) {
-      window.builderEvents = new EventTarget();
-    }
+    // Event system now handled by eventBus
   }
 
   attributeChangedCallback(name, oldValue, newValue) {

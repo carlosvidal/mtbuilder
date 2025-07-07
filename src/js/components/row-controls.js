@@ -1,6 +1,7 @@
 // row-controls.js
 
 import { BuilderIcon } from "./builder-icon.js";
+import { eventBus } from "../utils/event-bus.js";
 class RowControls extends HTMLElement {
   constructor() {
     super();
@@ -29,13 +30,8 @@ class RowControls extends HTMLElement {
       deleteBtn.addEventListener("click", (e) => {
         e.stopPropagation();
         if (confirm("Are you sure you want to delete this row?")) {
-          this.dispatchEvent(
-            new CustomEvent("row-delete", {
-              bubbles: true,
-              composed: true,
-              detail: { rowId: this.getAttribute("row-id") },
-            })
-          );
+          console.log("🗑️ Row Controls - Emitting rowDeleted event");
+          eventBus.emit("rowDeleted", { rowId: this.getAttribute("row-id") });
         }
       });
     }
@@ -45,13 +41,8 @@ class RowControls extends HTMLElement {
     if (duplicateBtn) {
       duplicateBtn.addEventListener("click", (e) => {
         e.stopPropagation();
-        this.dispatchEvent(
-          new CustomEvent("row-duplicate", {
-            bubbles: true,
-            composed: true,
-            detail: { rowId: this.getAttribute("row-id") },
-          })
-        );
+        console.log("📋 Row Controls - Emitting rowDuplicated event");
+        eventBus.emit("rowDuplicated", { rowId: this.getAttribute("row-id") });
       });
     }
 
@@ -60,13 +51,8 @@ class RowControls extends HTMLElement {
     if (addBtn) {
       addBtn.addEventListener("click", (e) => {
         e.stopPropagation();
-        this.dispatchEvent(
-          new CustomEvent("row-add", {
-            bubbles: true,
-            composed: true,
-            detail: { rowId: this.getAttribute("row-id") },
-          })
-        );
+        console.log("➕ Row Controls - Emitting rowAdded event");
+        eventBus.emit("rowAdded", { rowId: this.getAttribute("row-id") });
       });
     }
 
@@ -79,14 +65,8 @@ class RowControls extends HTMLElement {
           e.stopPropagation();
           row.draggable = true;
 
-          // Emitir evento para notificar que el drag está comenzando
-          this.dispatchEvent(
-            new CustomEvent("row-drag-start", {
-              bubbles: true,
-              composed: true,
-              detail: { rowId: this.getAttribute("row-id") },
-            })
-          );
+          // Emitir evento usando eventBus
+          eventBus.emit("rowDragStart", { rowId: this.getAttribute("row-id") });
         });
       }
     }

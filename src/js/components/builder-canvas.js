@@ -116,17 +116,57 @@ export class BuilderCanvas extends HTMLElement {
   }
 
   disconnectedCallback() {
+    // Limpiar todos los event handlers
     if (this._rowUpdatedHandler) {
-      window.builderEvents.removeEventListener(
-        "rowUpdated",
-        this._rowUpdatedHandler
-      );
+      eventBus.off("rowUpdated", this._rowUpdatedHandler);
     }
-    this.unsubscribeStore();
-    eventBus.off("globalSettingsUpdated");
-    eventBus.off("rowUpdated");
-    eventBus.off("rowSelected");
-    eventBus.off("elementSelected");
+    if (this._elementSelectedHandler) {
+      eventBus.off("elementSelected", this._elementSelectedHandler);
+    }
+    if (this._elementUpdatedHandler) {
+      eventBus.off("elementUpdated", this._elementUpdatedHandler);
+    }
+    if (this.elementUpdateListener) {
+      eventBus.off("elementUpdated", this.elementUpdateListener);
+    }
+    
+    // Limpiar row control events
+    eventBus.off("rowDeleted");
+    eventBus.off("rowDuplicated");
+    eventBus.off("rowAdded");
+    eventBus.off("rowDragStart");
+
+    // Limpiar suscripción al store
+    if (this.unsubscribeStore) {
+      this.unsubscribeStore();
+    }
+
+    // Limpiar event listeners del DOM
+    this.rowEventHandlers.forEach((handler, rowId) => {
+      const row = this.shadowRoot?.querySelector(`[data-id="${rowId}"]`);
+      if (row) {
+        row.removeEventListener("dragstart", handler.dragstart);
+        row.removeEventListener("dragend", handler.dragend);
+      }
+    });
+    this.rowEventHandlers.clear();
+    
+    // Limpiar canvas drop zone handlers
+    const canvas = this.shadowRoot?.querySelector(".canvas-dropzone");
+    if (canvas) {
+      if (this._dropHandler) {
+        canvas.removeEventListener("drop", this._dropHandler);
+      }
+      if (this._dragOverHandler) {
+        canvas.removeEventListener("dragover", this._dragOverHandler);
+      }
+      if (this._dragLeaveHandler) {
+        canvas.removeEventListener("dragleave", this._dragLeaveHandler);
+      }
+      if (this._elementDeleteHandler) {
+        canvas.removeEventListener("click", this._elementDeleteHandler);
+      }
+    }
   }
 
   attributeChangedCallback(name, oldValue, newValue) {
@@ -137,16 +177,22 @@ export class BuilderCanvas extends HTMLElement {
       const savedData = CanvasStorage.loadCanvas(newValue);
       console.log("Canvas attributeChangedCallback - loaded data:", savedData);
 
-      // Aquí falta cargar los globalSettings
+      // Cargar datos en el store en lugar de propiedades locales
       if (savedData) {
+        const currentState = store.getState();
+        const newState = {
+          ...currentState,
+          pageId: newValue
+        };
+        
         if (savedData.rows) {
-          this.rows = JSON.parse(JSON.stringify(savedData.rows));
+          newState.rows = savedData.rows;
         }
         if (savedData.globalSettings) {
-          // Añadir esta parte
-          this.globalSettings = savedData.globalSettings;
+          newState.globalSettings = savedData.globalSettings;
         }
-        this.render();
+        
+        store.setState(newState);
       }
     }
   }
@@ -335,6 +381,56 @@ export class BuilderCanvas extends HTMLElement {
   background: #f5f5f5;
   border-color: #ccc;
   color: #333;
+}
+
+.element-controls {
+  position: absolute;
+  right: 0.5rem;
+  top: 0.5rem;
+  display: flex;
+  gap: 0.25rem;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 10;
+}
+
+.builder-element-wrapper:hover .element-controls {
+  opacity: 1;
+}
+
+.element-controls button {
+  padding: 0.25rem;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: #666;
+  width: 24px;
+  height: 24px;
+  justify-content: center;
+}
+
+.element-controls button:hover {
+  background: #f5f5f5;
+  border-color: #ccc;
+  color: #333;
+}
+
+.element-delete {
+  color: #dc3545;
+}
+
+.element-delete:hover {
+  background: #dc3545;
+  border-color: #dc3545;
+  color: white;
+}
+
+.builder-element-wrapper {
+  position: relative;
 }
 
     .row-add-button {
@@ -578,18 +674,15 @@ export class BuilderCanvas extends HTMLElement {
     // Actualizar el contenido
     this.shadowRoot.innerHTML = html;
 
-    // Setup after render
-    if (!suppressEvent) {
-      requestAnimationFrame(() => {
-        this.setupDropZone();
-        this.setupEventListeners();
-        this.setupElementSelection();
+    // Setup after render - siempre configurar eventos
+    requestAnimationFrame(() => {
+      this.setupDropZone(); // Configurar primero el drop zone del canvas
+      this.setupEventListeners(); // Configurar dragging de elementos
 
-        if (!this._isUndoRedoOperation) {
-          this.emitContentChanged(suppressEvent);
-        }
-      });
-    }
+      if (!suppressEvent && !this._isUndoRedoOperation) {
+        this.emitContentChanged(suppressEvent);
+      }
+    });
 
     console.log("🎨 Canvas - Render completed");
   }
@@ -648,35 +741,46 @@ export class BuilderCanvas extends HTMLElement {
 
   // 4. Eventos y manejo de estado
   setupEventSubscriptions() {
-    // Asegurarnos de limpiar primero los listeners existentes
+    // Limpiar listeners existentes
     if (this._rowUpdatedHandler) {
-      window.builderEvents.removeEventListener(
-        "rowUpdated",
-        this._rowUpdatedHandler
-      );
+      eventBus.off("rowUpdated", this._rowUpdatedHandler);
+    }
+    if (this._elementSelectedHandler) {
+      eventBus.off("elementSelected", this._elementSelectedHandler);
+    }
+    if (this._elementUpdatedHandler) {
+      eventBus.off("elementUpdated", this._elementUpdatedHandler);
     }
 
-    // Crear nuevo handler
-    this._rowUpdatedHandler = (e) => {
-      console.log("🎯 Canvas - Received rowUpdated event", e.detail);
-      this.handleRowUpdated(e);
+    // Crear handlers con bind para poder removerlos después
+    this._rowUpdatedHandler = (data) => {
+      console.log("🎯 Canvas - Received rowUpdated event", data);
+      this.handleRowUpdated({ detail: data });
     };
 
-    // Agregar el listener
-    window.builderEvents.addEventListener(
-      "rowUpdated",
-      this._rowUpdatedHandler
-    );
+    this._elementSelectedHandler = (data) => {
+      console.log("🎯 Canvas - Element selected", data);
+      // Manejar selección de elemento
+    };
 
-    // Remover los event listeners de drag globales
-    eventBus.on("stateChanged", (newState, prevState) => {
-      console.log("🔍 State changed", {
-        prevRows: prevState?.rows?.length,
-        newRows: newState?.rows?.length,
-      });
-    });
+    this._elementUpdatedHandler = (data) => {
+      console.log("🎯 Canvas - Element updated", data);
+      const { elementId } = data;
+      this.updateElementStyles(elementId, data);
+    };
 
-    // Solo mantener los listeners necesarios para el estado
+      // Usar eventBus para todos los eventos
+    eventBus.on("rowUpdated", this._rowUpdatedHandler);
+    eventBus.on("elementSelected", this._elementSelectedHandler);
+    eventBus.on("elementUpdated", this._elementUpdatedHandler);
+    
+    // Row control events
+    eventBus.on("rowDeleted", (data) => this.handleRowDelete({ detail: data }));
+    eventBus.on("rowDuplicated", (data) => this.handleRowDuplicate({ detail: data }));
+    eventBus.on("rowAdded", (data) => this.handleRowAdd({ detail: data }));
+    eventBus.on("rowDragStart", (data) => this.handleRowDragStart({ detail: data }));
+
+    // Mantener solo la suscripción al store
     this.unsubscribeStore = store.subscribe((newState, prevState) => {
       console.log("🔄 Store state changed:", {
         rowsChanged: newState.rows !== prevState?.rows,
@@ -797,14 +901,14 @@ export class BuilderCanvas extends HTMLElement {
 
     const newRow = {
       ...sourceRow,
-      id: `row-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `row-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
       columns: sourceRow.columns.map((col) => ({
-        id: `column-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        id: `column-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
         elements: col.elements.map((element) => ({
           ...element,
           id: `element-${Date.now()}-${Math.random()
             .toString(36)
-            .substr(2, 9)}`,
+            .slice(2, 11)}`,
         })),
       })),
     };
@@ -825,23 +929,27 @@ export class BuilderCanvas extends HTMLElement {
     const canvas = this.shadowRoot.querySelector(".canvas-dropzone");
     if (!canvas) return;
 
-    // Limpiar eventos existentes
-    const newCanvas = canvas.cloneNode(true);
-    canvas.parentNode.replaceChild(newCanvas, canvas);
+    // Limpiar eventos existentes sin clonar (más eficiente)
+    if (this._dropHandler) {
+      canvas.removeEventListener("drop", this._dropHandler);
+    }
+    if (this._dragOverHandler) {
+      canvas.removeEventListener("dragover", this._dragOverHandler);
+    }
+    if (this._dragLeaveHandler) {
+      canvas.removeEventListener("dragleave", this._dragLeaveHandler);
+    }
 
     // Configurar eventos de drag & drop para filas existentes
     this.setupRowDragEvents();
 
-    // Mantener el comportamiento existente para nuevos elementos
-    const dropHandler = (e) => {
+    // Crear handlers reutilizables
+    this._dropHandler = (e) => {
       e.preventDefault();
       e.stopPropagation();
       e.stopImmediatePropagation();
 
-      newCanvas.classList.remove("dragover");
-
-      // Remover el handler temporalmente para evitar duplicación
-      newCanvas.removeEventListener("drop", dropHandler);
+      canvas.classList.remove("dragover");
 
       const rowType = e.dataTransfer.getData("text/plain");
       const elementType = e.dataTransfer.getData(
@@ -866,27 +974,25 @@ export class BuilderCanvas extends HTMLElement {
           }
         }
       }
-
-      // Re-añadir el handler después de un pequeño delay
-      setTimeout(() => {
-        newCanvas.addEventListener("drop", dropHandler);
-      }, 0);
     };
 
-    newCanvas.addEventListener("dragover", (e) => {
+    this._dragOverHandler = (e) => {
       const isRowDrag = e.dataTransfer.types.includes("application/x-row-id");
       if (!isRowDrag) {
         e.preventDefault();
         e.stopPropagation();
-        newCanvas.classList.add("dragover");
+        canvas.classList.add("dragover");
       }
-    });
+    };
 
-    newCanvas.addEventListener("dragleave", () => {
-      newCanvas.classList.remove("dragover");
-    });
+    this._dragLeaveHandler = () => {
+      canvas.classList.remove("dragover");
+    };
 
-    newCanvas.addEventListener("drop", dropHandler);
+    // Añadir event listeners
+    canvas.addEventListener("dragover", this._dragOverHandler);
+    canvas.addEventListener("dragleave", this._dragLeaveHandler);
+    canvas.addEventListener("drop", this._dropHandler);
   }
 
   handleRowDrop(e, draggedRowId) {
@@ -1023,10 +1129,7 @@ export class BuilderCanvas extends HTMLElement {
 
   setupElementSelection() {
     if (this.elementUpdateListener) {
-      window.builderEvents.removeEventListener(
-        "elementUpdated",
-        this.elementUpdateListener
-      );
+      eventBus.off("elementUpdated", this.elementUpdateListener);
     }
 
     const elements = this.shadowRoot.querySelectorAll(".builder-element");
@@ -1041,7 +1144,10 @@ export class BuilderCanvas extends HTMLElement {
         e.stopPropagation();
         e.preventDefault();
 
+        console.log("🐈 Element clicked:", element.dataset.type, element.dataset.id);
+
         if (e.target.isContentEditable) {
+          console.log("🐈 Element is contentEditable, skipping");
           return;
         }
 
@@ -1050,8 +1156,10 @@ export class BuilderCanvas extends HTMLElement {
         });
 
         // Deseleccionar fila si hay alguna seleccionada
-        this.rows.forEach((row) => (row.selected = false));
-        window.builderEvents.dispatchEvent(new CustomEvent("rowDeselected"));
+        const state = store.getState();
+        const updatedRows = state.rows.map(row => ({ ...row, selected: false }));
+        store.setState({ ...state, rows: updatedRows });
+        eventBus.emit("rowDeselected");
 
         element.classList.add("selected");
 
@@ -1059,24 +1167,50 @@ export class BuilderCanvas extends HTMLElement {
         const elementData = this.findElementById(elementId);
 
         if (elementData) {
-          window.builderEvents.dispatchEvent(
-            new CustomEvent("elementSelected", {
-              detail: elementData,
-            })
-          );
+          console.log("🐈 Emitting elementSelected event:", elementData.type);
+          eventBus.emit("elementSelected", elementData);
+        } else {
+          console.log("🐈 No element data found for id:", elementId);
         }
       });
     });
 
-    this.elementUpdateListener = (e) => {
-      const { elementId, styles } = e.detail;
-      this.updateElementStyles(elementId, styles);
+    this.elementUpdateListener = (data) => {
+      const { elementId } = data;
+      this.updateElementStyles(elementId, data);
     };
 
-    window.builderEvents.addEventListener(
-      "elementUpdated",
-      this.elementUpdateListener
-    );
+    eventBus.on("elementUpdated", this.elementUpdateListener);
+  }
+
+  setupElementDeleteEventDelegation() {
+    // Use event delegation for element delete buttons
+    const canvas = this.shadowRoot.querySelector(".canvas-dropzone");
+    if (!canvas) return;
+
+    // Remove existing event listener if it exists
+    if (this._elementDeleteHandler) {
+      canvas.removeEventListener("click", this._elementDeleteHandler);
+    }
+
+    // Create event handler for element delete buttons
+    this._elementDeleteHandler = (e) => {
+      if (e.target.closest(".element-delete")) {
+        e.stopPropagation();
+        e.preventDefault();
+        
+        const deleteButton = e.target.closest(".element-delete");
+        const elementId = deleteButton.getAttribute("data-element-id");
+        
+        if (elementId) {
+          console.log("🗑️ Deleting element:", elementId);
+          this.deleteElement(elementId);
+        }
+      }
+    };
+
+    // Add event listener using delegation
+    canvas.addEventListener("click", this._elementDeleteHandler);
   }
 
   setupTextEditing(element) {
@@ -1116,47 +1250,50 @@ export class BuilderCanvas extends HTMLElement {
   }
 
   // En builder-canvas.js
-  updateElementStyles(elementId, styles) {
+  updateElementStyles(elementId, data) {
+    console.log("🎯 Canvas - updateElementStyles called with:", { elementId, data });
+    const state = store.getState();
     let elementUpdated = false;
 
-    for (const row of this.rows) {
-      for (const column of row.columns) {
-        const element = column.elements.find((el) => el.id === elementId);
-        if (element) {
-          // Actualizar el modelo de datos
-          element.styles = { ...element.styles, ...styles };
+    const updatedRows = state.rows.map(row => {
+      const updatedColumns = row.columns.map(column => {
+        const elementIndex = column.elements.findIndex(el => el.id === elementId);
+        if (elementIndex !== -1) {
+          const updatedElements = [...column.elements];
+          const currentElement = updatedElements[elementIndex];
+          
+          // Update element with all provided data
+          updatedElements[elementIndex] = {
+            ...currentElement,
+            ...(data.styles && { styles: { ...currentElement.styles, ...data.styles } }),
+            ...(data.attributes && { attributes: { ...currentElement.attributes, ...data.attributes } }),
+            ...(data.content !== undefined && { content: data.content }),
+            ...(data.tag !== undefined && { tag: data.tag })
+          };
+          
+          console.log("🎯 Canvas - Updated element:", updatedElements[elementIndex]);
           elementUpdated = true;
-
-          // Actualizar el DOM
-          const elementToUpdate = this.shadowRoot.querySelector(
-            `[data-id="${elementId}"]`
-          );
-          if (elementToUpdate) {
-            Object.entries(styles).forEach(([key, value]) => {
-              const cssKey = key.replace(/([A-Z])/g, "-$1").toLowerCase();
-              if (key.startsWith("margin") || key.startsWith("padding")) {
-                elementToUpdate.style[key] = value + "px";
-              } else if (key === "fontSize") {
-                elementToUpdate.style[cssKey] = value + "px";
-              } else {
-                elementToUpdate.style[cssKey] = value;
-              }
-            });
-          }
-          break;
+          return { ...column, elements: updatedElements };
         }
-      }
-    }
+        return column;
+      });
+      return { ...row, columns: updatedColumns };
+    });
 
     if (elementUpdated) {
-      this.emitContentChanged(); // Emitir cambios solo si hubo una actualización
+      store.setState({ ...state, rows: updatedRows });
+      
+      // Re-render the entire canvas to reflect all changes
+      console.log("🎯 Canvas - Re-rendering after element update");
+      this.render();
     }
   }
 
   findElementById(id) {
     console.log("Finding element by id:", id);
-    console.log("Current rows:", this.rows);
-    for (const row of this.rows) {
+    const state = store.getState();
+    console.log("Current rows:", state.rows);
+    for (const row of state.rows) {
       for (const column of row.columns) {
         const element = column.elements.find((el) => el.id === id);
         if (element) {
@@ -1212,17 +1349,12 @@ export class BuilderCanvas extends HTMLElement {
   }
 
   setupEventListeners() {
-    // Limpiar listeners anteriores
-    const canvas = this.shadowRoot.querySelector(".canvas-dropzone");
-    if (canvas) {
-      const newCanvas = canvas.cloneNode(true);
-      canvas.parentNode.replaceChild(newCanvas, canvas);
-    }
-
+    // No hacer cloning del canvas - usar cleanup apropiado
     requestAnimationFrame(() => {
       this.setupElementDragging();
-      this.setupDropZone();
+      // setupDropZone ya se llama desde render, no duplicar
       this.setupElementSelection();
+      this.setupElementDeleteEventDelegation();
     });
   }
 
@@ -1443,6 +1575,20 @@ export class BuilderCanvas extends HTMLElement {
           fontWeight: "500",
         },
       },
+      link: {
+        tag: "a",
+        content: "Enlace",
+        attributes: {
+          href: "#",
+          target: "_blank"
+        },
+        styles: {
+          color: "#2196F3",
+          textDecoration: "underline",
+          cursor: "pointer",
+          fontSize: "16px",
+        },
+      },
       image: {
         tag: "img",
         attributes: {
@@ -1639,20 +1785,28 @@ export class BuilderCanvas extends HTMLElement {
   }
 
   deleteElement(elementId) {
-    for (let row of this.rows) {
-      for (let column of row.columns) {
+    const state = store.getState();
+    let elementDeleted = false;
+
+    const updatedRows = state.rows.map(row => {
+      const updatedColumns = row.columns.map(column => {
         const elementIndex = column.elements.findIndex(
           (el) => el.id === elementId
         );
         if (elementIndex !== -1) {
-          // Eliminar el elemento
-          column.elements.splice(elementIndex, 1);
-          // Guardar los cambios en el storage
-          this.emitContentChanged();
-          this.render();
-          return;
+          const updatedElements = [...column.elements];
+          updatedElements.splice(elementIndex, 1);
+          elementDeleted = true;
+          return { ...column, elements: updatedElements };
         }
-      }
+        return column;
+      });
+      return { ...row, columns: updatedColumns };
+    });
+
+    if (elementDeleted) {
+      store.setState({ ...state, rows: updatedRows });
+      this.emitContentChanged();
     }
   }
 
@@ -1762,64 +1916,52 @@ export class BuilderCanvas extends HTMLElement {
 
   setPageId(pageId) {
     console.log("Setting pageId:", pageId);
-    this.pageId = pageId;
-
+    
+    const currentState = store.getState();
     const savedData = CanvasStorage.loadCanvas(pageId);
     console.log("Loaded canvas data:", savedData);
 
+    const newState = {
+      ...currentState,
+      pageId
+    };
+
     if (savedData) {
       if (savedData.rows) {
-        this.rows = JSON.parse(JSON.stringify(savedData.rows));
+        newState.rows = savedData.rows;
       }
       if (savedData.globalSettings) {
-        // Añadir esta parte
-        this.globalSettings = savedData.globalSettings;
+        newState.globalSettings = savedData.globalSettings;
       }
-      this.render();
     }
-
+    
+    store.setState(newState);
     this.emitContentChanged();
   }
 
   loadSavedCanvas() {
-    console.log("Loading saved canvas for pageId:", this.pageId);
-    if (!this.pageId) return;
+    const state = store.getState();
+    console.log("Loading saved canvas for pageId:", state.pageId);
+    if (!state.pageId) return;
 
-    const savedData = CanvasStorage.loadCanvas(this.pageId);
+    const savedData = CanvasStorage.loadCanvas(state.pageId);
     if (savedData) {
+      const newState = { ...state };
+      
       if (savedData.rows) {
-        this.rows = savedData.rows;
+        newState.rows = savedData.rows;
       }
       if (savedData.globalSettings) {
-        this.globalSettings = savedData.globalSettings;
+        newState.globalSettings = savedData.globalSettings;
       }
-      this.render();
+      
+      store.setState(newState);
     }
   }
 
   setupRowEventListeners() {
     console.log("Setting up row event listeners");
-
-    this.addEventListener("row-delete", (e) => {
-      console.log("Row delete event received:", e.detail);
-      this.handleRowDelete(e);
-    });
-
-    this.addEventListener("row-duplicate", (e) => {
-      console.log("Row duplicate event received:", e.detail);
-      this.handleRowDuplicate(e);
-    });
-
-    this.addEventListener("row-add", (e) => {
-      console.log("Row add event received:", e.detail);
-      this.handleRowAdd(e);
-    });
-
-    this.addEventListener("row-select", (e) => {
-      console.log("Row select event received:", e.detail);
-      this.handleRowSelect(e);
-    });
-
+    // Los eventos ahora se manejan a través de eventBus en setupEventSubscriptions
     this.setupRowDragEvents();
   }
 
@@ -1844,14 +1986,14 @@ export class BuilderCanvas extends HTMLElement {
     // Create deep copy with new IDs
     const newRow = {
       ...sourceRow,
-      id: `row-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `row-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
       columns: sourceRow.columns.map((col) => ({
-        id: `column-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        id: `column-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
         elements: col.elements.map((element) => ({
           ...element,
           id: `element-${Date.now()}-${Math.random()
             .toString(36)
-            .substr(2, 9)}`,
+            .slice(2, 11)}`,
         })),
       })),
     };
@@ -1870,11 +2012,11 @@ export class BuilderCanvas extends HTMLElement {
     const state = store.getState();
 
     const newRow = {
-      id: `row-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `row-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
       type: "row-1",
       columns: [
         {
-          id: `column-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: `column-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
           elements: [],
         },
       ],
@@ -1888,15 +2030,24 @@ export class BuilderCanvas extends HTMLElement {
     this.emitContentChanged();
   }
 
-  handleRowSelect(e) {
+  handleRowDragStart(e) {
     const { rowId } = e.detail;
+    console.log("🔅 Row drag start:", rowId);
+    const row = this.shadowRoot.querySelector(`[data-id="${rowId}"]`);
+    if (row) {
+      this.createTemporaryDropZones(row);
+    }
+  }
+
+  handleRowSelect(e) {
+    const { rowId } = e.detail || e;
     const state = store.getState();
 
     console.log("Selecting row:", rowId);
 
     // Deselect elements first
     this.shadowRoot
-      .querySelectorAll(".builder-element.selected")
+      ?.querySelectorAll(".builder-element.selected")
       .forEach((el) => el.classList.remove("selected"));
 
     // Update row selection state
@@ -1905,17 +2056,22 @@ export class BuilderCanvas extends HTMLElement {
       selected: row.id === rowId,
     }));
 
+    const selectedRow = state.rows.find((r) => r.id === rowId);
+
     // Update store
     store.setState({
       ...state,
       rows: updatedRows,
-      selectedRow: state.rows.find((r) => r.id === rowId),
+      selectedRow,
     });
 
-    // Emit selection event for other components
-    eventBus.emit("rowSelected", {
-      row: state.rows.find((r) => r.id === rowId),
-    });
+    // Solo emitir si no vino de eventBus para evitar bucles
+    if (!e.detail?.fromEventBus) {
+      eventBus.emit("rowSelected", {
+        row: selectedRow,
+        fromEventBus: true
+      });
+    }
 
     // Force rerender
     requestAnimationFrame(() => {
@@ -2032,15 +2188,21 @@ export class BuilderCanvas extends HTMLElement {
   setEditorData(data, suppressEvent = false) {
     if (!data) return;
 
+    const currentState = store.getState();
+    const newState = { ...currentState };
+
     if (data.globalSettings) {
-      this.globalSettings = { ...this.globalSettings, ...data.globalSettings };
+      newState.globalSettings = { ...currentState.globalSettings, ...data.globalSettings };
     }
 
     if (data.rows) {
-      this.rows = JSON.parse(JSON.stringify(data.rows));
+      newState.rows = data.rows;
     }
 
-    this.render(suppressEvent);
+    store.setState(newState);
+    if (suppressEvent) {
+      this.render(suppressEvent);
+    }
   }
 }
 

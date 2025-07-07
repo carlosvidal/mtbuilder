@@ -1,4 +1,6 @@
 // base-element-editor.js
+import { eventBus } from "../../utils/event-bus.js";
+
 export class BaseElementEditor extends HTMLElement {
   constructor() {
     super();
@@ -60,17 +62,14 @@ export class BaseElementEditor extends HTMLElement {
   }
 
   emitUpdateEvent() {
-    window.builderEvents.dispatchEvent(
-      new CustomEvent("elementUpdated", {
-        detail: {
-          elementId: this.currentElement.id,
-          styles: this.currentElement.styles,
-          attributes: this.currentElement.attributes,
-          content: this.currentElement.content,
-          tag: this.currentElement.tag,
-        },
-      })
-    );
+    console.log("🔧 BaseElementEditor - Emitting elementUpdated event for:", this.currentElement.id);
+    eventBus.emit("elementUpdated", {
+      elementId: this.currentElement.id,
+      styles: this.currentElement.styles,
+      attributes: this.currentElement.attributes,
+      content: this.currentElement.content,
+      tag: this.currentElement.tag,
+    });
   }
 
   // Métodos comunes para renderizar secciones de editor
