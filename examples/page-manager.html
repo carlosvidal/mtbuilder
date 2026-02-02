@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Page Builder - Page Manager Example</title>
+    <script type="module" src="../src/js/index.js"></script>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+      }
+      body {
+        font-family: Arial, sans-serif;
+      }
+    </style>
+  </head>
+  <body>
+    <page-manager lang="es"></page-manager>
+    <script>
+      const base = document.createElement("base");
+      base.href =
+        window.location.hostname === "carlosvidal.github.io"
+          ? "/mtbuilder/" // Ruta en GitHub Pages
+          : "/"; // Ruta en tu entorno local
+      document.head.appendChild(base);
+    </script>
+  </body>
+</html>

@@ -1,223 +1,210 @@
 # MT Builder
 
-A modern, lightweight web page builder created with vanilla JavaScript and Web Components. This project aims to provide a drag-and-drop interface for building responsive web pages without dependencies.
+A lightweight, zero-dependency page builder using Web Components. Drag-and-drop interface for building responsive web pages. Works with any backend.
 
-## ⚠️ Project Status
-This project is currently in early development and not ready for production use. Many features are still being implemented and the API is subject to change.
+**[Live Demo](https://carlosvidal.github.io/mtbuilder/)** | **[Examples](https://carlosvidal.github.io/mtbuilder/examples/page-manager.html)**
 
-## 🌟 Features
-- 📦 Zero dependencies
-- 🎨 Drag and drop interface
-- 🧩 Web Components architecture
-- 📱 Responsive grid system
-- 🎯 Component-based design
-- 🔌 Extensible element system
-- 📚 Multi-page management
-- ↩️ Undo/Redo functionality
-- 📱 Responsive preview (Desktop/Tablet/Mobile)
-- 🔄 Local storage persistence
-- 📋 Copy HTML/JSON output
-- 🖼️ Visual page builder interface
-- 🔌 Backend Integration API
-- 🌍 Multilingual support (i18n)
+## Features
 
-## 🛠️ Element Types
-- 📝 Text blocks
-- 🎯 Headings (H1-H6)
-- 🖼️ Images
-- 🔘 Buttons
-- 📊 Tables
-- 📝 Lists
-- 🎥 Videos
-- ➖ Dividers
-- ↕️ Spacers
-- </> Custom HTML
+- **Zero dependencies** — No React, no Vue, no jQuery. Under 35KB gzipped.
+- **Web Components** — Standard Custom Elements with Shadow DOM. Works anywhere.
+- **Two usage modes** — Standalone `<page-builder>` or full `<page-manager>` with page listing.
+- **Event-driven API** — `builder:ready`, `builder:save`, `builder:content-changed` CustomEvents.
+- **i18n built-in** — English, Spanish and French. Set via `lang` attribute.
+- **XSS sanitized** — Built-in HTML sanitizer for user content.
+- **Undo/Redo** — Full history stack with keyboard support.
+- **Responsive preview** — Desktop, tablet and mobile preview modes.
+- **10 element types** — Heading, text, image, button, table, list, video, divider, spacer, HTML.
 
-## 🌍 Internationalization (i18n)
-The page builder includes built-in support for multiple languages:
+## Quick Start
 
-### Supported Languages
-- 🇺🇸 English (en)
-- 🇪🇸 Spanish (es)
-- 🇫🇷 French (fr)
+### Installation
 
-### Language Features
-- 🔄 Automatic language detection
-- 💾 Language preference persistence
-- 🔌 Easy integration with new languages
-- 🎯 Fallback to default language
-- 📱 Real-time language switching
-
-### Adding New Languages
-To add a new language:
-1. Create a new JSON file in `/src/locales/` with the language code (e.g., `de.json`)
-2. Follow the existing translation structure
-3. Register the language code in `i18n.js`
-
-```javascript
-// Example translation file structure
-{
-    "builder": {
-        "sidebar": {
-            "tabs": {
-                "elements": "Elements",
-                "rows": "Rows",
-                "settings": "Settings"
-            }
-        }
-    }
-}
+```bash
+git clone https://github.com/carlosvidal/mtbuilder.git
+cd mtbuilder
+npm install
+npm run dev
 ```
 
-## 🔌 Integration API
-The page builder can be integrated with any backend system using our flexible integration API. It supports three modes of operation:
+### Standalone Builder (recommended for integration)
 
-### Usage Modes
-- **Local Mode**: Works completely client-side using localStorage (default)
-- **API Mode**: Direct integration with a backend API
-- **Hybrid Mode**: Combines local storage with backend synchronization
+Use `<page-builder>` when your application manages pages externally (PHP, Rails, Django, etc.):
 
-### Basic Usage
 ```html
-<!-- Local Storage Only -->
-<page-manager></page-manager>
+<page-builder page-id="42" lang="es"></page-builder>
 
-<!-- With Backend Integration and Language -->
-<page-manager 
-  api-endpoint="https://your-api.com/v1"
-  api-key="your-api-key"
+<script type="module">
+  import "./dist/page-builder.js";
+
+  const builder = document.querySelector("page-builder");
+
+  // Load data when the builder is ready
+  builder.addEventListener("builder:ready", () => {
+    builder.setPageData(pageDataFromServer);
+  });
+
+  // Handle save
+  builder.addEventListener("builder:save", async (e) => {
+    await fetch(`/api/pages/${e.detail.pageId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(e.detail.data),
+    });
+  });
+
+  // Optional: listen for content changes (autosave)
+  builder.addEventListener("builder:content-changed", (e) => {
+    console.log("Content changed:", e.detail.data);
+  });
+</script>
+```
+
+### Page Manager (built-in page management)
+
+Use `<page-manager>` for a complete solution with page listing and localStorage:
+
+```html
+<page-manager lang="es"></page-manager>
+<script type="module" src="./dist/page-builder.js"></script>
+```
+
+With backend API:
+
+```html
+<page-manager
+  lang="en"
+  api-endpoint="https://api.example.com/pages"
+  api-key="your-key"
   mode="hybrid"
-  lang="es">
-</page-manager>
+></page-manager>
 ```
 
-### API Endpoints Required
-For backend integration, implement these endpoints:
-```javascript
-GET    /api/pages      // List all pages
-POST   /api/pages      // Create new page
-GET    /api/pages/{id} // Get specific page
-PUT    /api/pages/{id} // Update page
-DELETE /api/pages/{id} // Delete page
-```
+## API Reference
+
+### `<page-builder>` Attributes
+
+| Attribute  | Description | Default |
+|-----------|-------------|---------|
+| `page-id` | Page identifier | `""` |
+| `lang`    | Language (`en`, `es`, `fr`) | browser default |
+| `mode`    | `"external"` (events only) or `"local"` (localStorage) | `"external"` |
+
+### `<page-builder>` Methods
+
+| Method | Description |
+|--------|-------------|
+| `setPageData(data)` | Load `{ rows, globalSettings }` into the editor |
+| `getPageData()` | Returns current `{ rows, globalSettings }` |
+| `save()` | Dispatches `builder:save` event with current data |
+
+### `<page-builder>` Events
+
+All events use `CustomEvent` with `bubbles: true, composed: true`.
+
+| Event | Detail | When |
+|-------|--------|------|
+| `builder:ready` | `{ pageId }` | Editor is ready to receive data |
+| `builder:save` | `{ pageId, data }` | User clicked Save or `save()` was called |
+| `builder:content-changed` | `{ pageId, data }` | Content was modified in the editor |
+
+### `<page-manager>` Attributes
+
+| Attribute | Description | Default |
+|-----------|-------------|---------|
+| `lang` | Language (`en`, `es`, `fr`) | browser default |
+| `api-endpoint` | Backend API URL | — (uses localStorage) |
+| `api-key` | API authentication key | — |
+| `mode` | `"local"`, `"api"`, `"hybrid"` | `"local"` |
 
 ### Data Format
-```javascript
-// Example page data structure
+
+```json
 {
-  "id": "page-123",
-  "name": "Home Page",
-  "lastModified": "2024-03-22T10:30:00Z",
-  "content": {
-    "rows": [
-      {
-        "id": "row-1",
-        "type": "row-2",
-        "columns": [
-          {
-            "id": "col-1",
-            "elements": [/* elements data */]
-          }
-        ]
-      }
-    ]
+  "rows": [
+    {
+      "id": "row-1",
+      "type": "row-2",
+      "columns": [
+        {
+          "id": "col-1",
+          "elements": [
+            {
+              "id": "el-1",
+              "type": "heading",
+              "content": "Hello World",
+              "tagName": "h1",
+              "styles": {}
+            }
+          ]
+        }
+      ],
+      "styles": {}
+    }
+  ],
+  "globalSettings": {
+    "maxWidth": "1200px",
+    "padding": "20px",
+    "backgroundColor": "#ffffff",
+    "fontFamily": "system-ui, -apple-system, sans-serif"
   }
 }
 ```
 
-### Event System
-Subscribe to builder events:
-```javascript
-const pageManager = document.querySelector('page-manager');
+### API Endpoints (for backend integration)
 
-// Listen for changes
-pageManager.addEventListener('contentChanged', (event) => {
-  console.log('Content updated:', event.detail);
-});
-
-// Listen for saves
-pageManager.addEventListener('pageSaved', (event) => {
-  console.log('Page saved:', event.detail.page);
-});
-
-// Listen for errors
-pageManager.addEventListener('saveError', (event) => {
-  console.error('Save error:', event.detail.error);
-});
-
-// Listen for language changes
-pageManager.addEventListener('languageChanged', (event) => {
-  console.log('Language changed:', event.detail.language);
-});
+```
+GET    /api/pages      — List all pages
+POST   /api/pages      — Create new page
+GET    /api/pages/{id} — Get specific page
+PUT    /api/pages/{id} — Update page
+DELETE /api/pages/{id} — Delete page
 ```
 
-### Custom Storage Adapters
-Create custom storage adapters for different backends:
-```javascript
-class CustomStorageAdapter {
-  async getPages() { /* ... */ }
-  async savePage(pageData) { /* ... */ }
-  async deletePage(pageId) { /* ... */ }
-}
+## Adding Languages
 
-// Use custom adapter
-const pageManager = document.querySelector('page-manager');
-pageManager.setStorageAdapter(new CustomStorageAdapter());
-```
+1. Create `src/locales/{code}.json` following the existing structure
+2. Add the locale code to `I18n.supportedLocales` in `src/js/utils/i18n.js`
 
-## Installation
+## Development
+
 ```bash
-# Clone the repository
-git clone https://github.com/carlosvidal/mtbuilder.git
-
-# Navigate to the project directory
-cd mtbuilder
-
-# Open index.html in your browser
+npm run dev        # Start Vite dev server
+npm run build      # Production build to dist/
+npm test           # Run tests (47 tests)
+npm run lint       # Run ESLint
 ```
 
 ## Project Structure
-```
-.
-├── css
-├── js
-│   ├── components
-│   │   ├── editors
-│   │   ├── builder-canvas.js
-│   │   ├── builder-sidebar.js
-│   │   ├── canvas-view-switcher.js
-│   │   ├── element-editor.js
-│   │   ├── page-builder.js
-│   │   └── page-manager.js
-│   ├── utils
-│   │   ├── canvas-storage.js
-│   │   ├── export-utils.js
-│   │   ├── history.js
-│   │   └── i18n.js
-│   └── index.js
-├── locales
-│   ├── en.json
-│   ├── es.json
-│   └── fr.json
-└── index.html
-```
 
-## 🚀 Demo
-You can try out the live demo at: https://carlosvidal.github.io/mtbuilder/
-
-## Contributing
-As this project is in early development, contributions are welcome but please note that major changes to the architecture may still occur.
+```
+mtbuilder/
+├── src/
+│   ├── js/
+│   │   ├── components/
+│   │   │   ├── editors/          # Element-specific editors
+│   │   │   ├── builder-canvas.js # Main canvas with drag & drop
+│   │   │   ├── builder-sidebar.js
+│   │   │   ├── canvas-view-switcher.js
+│   │   │   ├── page-builder.js   # Standalone builder component
+│   │   │   └── page-manager.js   # Full page management
+│   │   ├── utils/
+│   │   │   ├── store.js          # State management
+│   │   │   ├── event-bus.js      # Internal pub/sub
+│   │   │   ├── history.js        # Undo/redo stack
+│   │   │   ├── sanitize.js       # XSS protection
+│   │   │   ├── i18n.js           # Internationalization
+│   │   │   └── export-utils.js   # HTML/JSON export
+│   │   └── index.js              # Entry point
+│   └── locales/                  # en.json, es.json, fr.json
+├── examples/
+│   ├── page-manager.html         # Page manager demo
+│   └── php-integration.html      # Standalone builder demo
+├── tests/                        # Vitest tests
+├── dist/                         # Built output
+└── index.html                    # Project landing page
+```
 
 ## License
-[MIT License](LICENSE)
 
-## Development Roadmap
-- [x] Complete core builder functionality
-- [x] Implement undo/redo system
-- [x] Add backend integration API
-- [x] Add multilingual support
-- [ ] Add theme support
-- [ ] Create comprehensive documentation
-- [ ] Add unit tests
-- [ ] Optimize performance
-- [ ] Add more element types
+[MIT License](LICENSE)

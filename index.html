@@ -1,32 +1,489 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Page Builder</title>
-    <script type="module" src="./src/js/index.js"></script>
-    <style>
-      html,
-      body {
-        margin: 0;
-        padding: 0;
-        width: 100%;
-        height: 100%;
-      }
-      body {
-        font-family: Arial, sans-serif;
-      }
-    </style>
-  </head>
-  <body>
-    <page-manager></page-manager>
-    <script>
-      const base = document.createElement("base");
-      base.href =
-        window.location.hostname === "carlosvidal.github.io"
-          ? "/mtbuilder/" // Ruta en GitHub Pages
-          : "/"; // Ruta en tu entorno local
-      document.head.appendChild(base);
-    </script>
-  </body>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MT Builder — Zero-dependency Page Builder</title>
+  <style>
+    :root {
+      --color-bg: #0f172a;
+      --color-surface: #1e293b;
+      --color-border: #334155;
+      --color-primary: #3b82f6;
+      --color-primary-hover: #2563eb;
+      --color-text: #f1f5f9;
+      --color-text-muted: #94a3b8;
+      --color-accent: #10b981;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--color-bg);
+      color: var(--color-text);
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+    }
+
+    /* Header */
+    header {
+      padding: 1.5rem 0;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    header .container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .logo {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .logo span { color: var(--color-primary); }
+
+    .header-links {
+      display: flex;
+      gap: 1.5rem;
+      align-items: center;
+    }
+
+    .header-links a {
+      color: var(--color-text-muted);
+      text-decoration: none;
+      font-size: 0.875rem;
+      transition: color 0.2s;
+    }
+
+    .header-links a:hover { color: var(--color-text); }
+
+    .github-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+    }
+
+    /* Hero */
+    .hero {
+      padding: 6rem 0 4rem;
+      text-align: center;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      border-radius: 100px;
+      font-size: 0.8rem;
+      color: var(--color-primary);
+      margin-bottom: 1.5rem;
+    }
+
+    h1 {
+      font-size: clamp(2.25rem, 5vw, 3.5rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin-bottom: 1.25rem;
+    }
+
+    h1 .accent { color: var(--color-primary); }
+
+    .hero p {
+      font-size: 1.125rem;
+      color: var(--color-text-muted);
+      max-width: 540px;
+      margin: 0 auto 2.5rem;
+      line-height: 1.6;
+    }
+
+    .cta-group {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      font-size: 0.9375rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.2s;
+      border: none;
+      cursor: pointer;
+    }
+
+    .btn-primary {
+      background: var(--color-primary);
+      color: white;
+    }
+
+    .btn-primary:hover { background: var(--color-primary-hover); }
+
+    .btn-secondary {
+      background: var(--color-surface);
+      color: var(--color-text);
+      border: 1px solid var(--color-border);
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--color-text-muted);
+    }
+
+    /* Features */
+    .features {
+      padding: 4rem 0;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .feature-card {
+      padding: 1.5rem;
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: 12px;
+    }
+
+    .feature-icon {
+      width: 40px;
+      height: 40px;
+      background: rgba(59, 130, 246, 0.1);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1rem;
+      font-size: 1.25rem;
+    }
+
+    .feature-card h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .feature-card p {
+      font-size: 0.875rem;
+      color: var(--color-text-muted);
+      line-height: 1.5;
+    }
+
+    /* Code example */
+    .code-section {
+      padding: 4rem 0;
+    }
+
+    .code-section h2 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.02em;
+    }
+
+    .code-section > .container > p {
+      color: var(--color-text-muted);
+      margin-bottom: 2rem;
+    }
+
+    .code-tabs {
+      display: flex;
+      gap: 0;
+      margin-bottom: 0;
+    }
+
+    .code-tab {
+      padding: 0.5rem 1rem;
+      background: transparent;
+      border: 1px solid var(--color-border);
+      border-bottom: none;
+      color: var(--color-text-muted);
+      font-size: 0.8125rem;
+      font-family: ui-monospace, 'SF Mono', monospace;
+      cursor: pointer;
+      border-radius: 8px 8px 0 0;
+    }
+
+    .code-tab.active {
+      background: var(--color-surface);
+      color: var(--color-text);
+    }
+
+    .code-block {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: 0 12px 12px 12px;
+      padding: 1.5rem;
+      overflow-x: auto;
+      display: none;
+    }
+
+    .code-block.active { display: block; }
+
+    .code-block pre {
+      margin: 0;
+      font-family: ui-monospace, 'SF Mono', 'Cascadia Code', monospace;
+      font-size: 0.8125rem;
+      line-height: 1.7;
+      color: var(--color-text-muted);
+    }
+
+    .code-block .tag { color: #f472b6; }
+    .code-block .attr { color: #a78bfa; }
+    .code-block .str { color: #34d399; }
+    .code-block .kw { color: #f472b6; }
+    .code-block .fn { color: #60a5fa; }
+    .code-block .cm { color: #64748b; }
+    .code-block .obj { color: #fbbf24; }
+
+    /* Examples */
+    .examples {
+      padding: 4rem 0;
+    }
+
+    .examples h2 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.02em;
+    }
+
+    .examples > .container > p {
+      color: var(--color-text-muted);
+      margin-bottom: 2rem;
+    }
+
+    .example-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .example-card {
+      padding: 1.5rem;
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: 12px;
+      text-decoration: none;
+      color: inherit;
+      transition: border-color 0.2s;
+    }
+
+    .example-card:hover { border-color: var(--color-primary); }
+
+    .example-card h3 {
+      font-size: 1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .example-card p {
+      font-size: 0.875rem;
+      color: var(--color-text-muted);
+      line-height: 1.5;
+    }
+
+    .example-card .arrow {
+      display: inline-block;
+      margin-top: 0.75rem;
+      color: var(--color-primary);
+      font-size: 0.875rem;
+    }
+
+    /* Footer */
+    footer {
+      padding: 2rem 0;
+      border-top: 1px solid var(--color-border);
+      text-align: center;
+    }
+
+    footer p {
+      font-size: 0.8125rem;
+      color: var(--color-text-muted);
+    }
+
+    footer a { color: var(--color-primary); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="container">
+      <div class="logo">MT <span>Builder</span></div>
+      <nav class="header-links">
+        <a href="#features">Features</a>
+        <a href="#usage">Usage</a>
+        <a href="#examples">Examples</a>
+        <a href="https://github.com/carlosvidal/mtbuilder" class="github-link">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+          GitHub
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="container">
+      <div class="badge">v1.0 &middot; Zero Dependencies</div>
+      <h1>Drag &amp; Drop<br><span class="accent">Page Builder</span></h1>
+      <p>A lightweight, embeddable page builder using Web Components. No frameworks, no dependencies. Works with any backend.</p>
+      <div class="cta-group">
+        <a href="examples/page-manager.html" class="btn btn-primary">Live Demo</a>
+        <a href="https://github.com/carlosvidal/mtbuilder" class="btn btn-secondary">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+          Source Code
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="features" id="features">
+    <div class="container">
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">&#9881;</div>
+          <h3>Web Components</h3>
+          <p>Standard Custom Elements with Shadow DOM. Works in any framework or plain HTML — no build step required.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#9889;</div>
+          <h3>Zero Dependencies</h3>
+          <p>No React, no Vue, no jQuery. Just native browser APIs. The full bundle is under 35KB gzipped.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#127760;</div>
+          <h3>i18n Built-in</h3>
+          <p>English, Spanish and French out of the box. Set the language via the <code>lang</code> attribute.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#128268;</div>
+          <h3>Event-driven API</h3>
+          <p>Clean public API with DOM CustomEvents: <code>builder:ready</code>, <code>builder:save</code>, <code>builder:content-changed</code>.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#128196;</div>
+          <h3>10 Element Types</h3>
+          <p>Heading, text, image, button, table, list, video, divider, spacer and raw HTML. Drag to reorder.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#128274;</div>
+          <h3>XSS Sanitized</h3>
+          <p>Built-in HTML sanitizer strips dangerous tags and attributes. Safe by default for user content.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="code-section" id="usage">
+    <div class="container">
+      <h2>Quick Start</h2>
+      <p>Two ways to use the builder: standalone with your own backend, or with the built-in page manager.</p>
+
+      <div class="code-tabs">
+        <button class="code-tab active" data-tab="standalone">Standalone</button>
+        <button class="code-tab" data-tab="manager">Page Manager</button>
+      </div>
+
+      <div class="code-block active" id="tab-standalone">
+<pre><span class="cm">&lt;!-- Your PHP/HTML page --&gt;</span>
+<span class="tag">&lt;page-builder</span> <span class="attr">page-id</span>=<span class="str">"42"</span> <span class="attr">lang</span>=<span class="str">"es"</span><span class="tag">&gt;&lt;/page-builder&gt;</span>
+
+<span class="tag">&lt;script</span> <span class="attr">type</span>=<span class="str">"module"</span><span class="tag">&gt;</span>
+  <span class="kw">import</span> <span class="str">"./dist/page-builder.js"</span>;
+
+  <span class="kw">const</span> builder = document.<span class="fn">querySelector</span>(<span class="str">"page-builder"</span>);
+
+  <span class="cm">// Load data when ready</span>
+  builder.<span class="fn">addEventListener</span>(<span class="str">"builder:ready"</span>, () =&gt; {
+    builder.<span class="fn">setPageData</span>(<span class="obj">pageDataFromServer</span>);
+  });
+
+  <span class="cm">// Handle save</span>
+  builder.<span class="fn">addEventListener</span>(<span class="str">"builder:save"</span>, <span class="kw">async</span> (e) =&gt; {
+    <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">`/api/pages/${e.detail.pageId}`</span>, {
+      method: <span class="str">"PUT"</span>,
+      headers: { <span class="str">"Content-Type"</span>: <span class="str">"application/json"</span> },
+      body: <span class="obj">JSON</span>.<span class="fn">stringify</span>(e.detail.data)
+    });
+  });
+<span class="tag">&lt;/script&gt;</span></pre>
+      </div>
+
+      <div class="code-block" id="tab-manager">
+<pre><span class="cm">&lt;!-- Built-in page manager with localStorage --&gt;</span>
+<span class="tag">&lt;page-manager</span> <span class="attr">lang</span>=<span class="str">"es"</span><span class="tag">&gt;&lt;/page-manager&gt;</span>
+
+<span class="tag">&lt;script</span> <span class="attr">type</span>=<span class="str">"module"</span><span class="tag">&gt;</span>
+  <span class="kw">import</span> <span class="str">"./dist/page-builder.js"</span>;
+<span class="tag">&lt;/script&gt;</span>
+
+<span class="cm">&lt;!-- That's it. Pages are stored in localStorage. --&gt;</span>
+<span class="cm">&lt;!-- Or connect to an API: --&gt;</span>
+
+<span class="tag">&lt;page-manager</span>
+  <span class="attr">lang</span>=<span class="str">"en"</span>
+  <span class="attr">api-endpoint</span>=<span class="str">"https://api.example.com/pages"</span>
+  <span class="attr">api-key</span>=<span class="str">"your-key"</span>
+  <span class="attr">mode</span>=<span class="str">"hybrid"</span>
+<span class="tag">&gt;&lt;/page-manager&gt;</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <section class="examples" id="examples">
+    <div class="container">
+      <h2>Examples</h2>
+      <p>Try the interactive demos to see the builder in action.</p>
+      <div class="example-cards">
+        <a href="examples/page-manager.html" class="example-card">
+          <h3>Page Manager</h3>
+          <p>Full demo with page listing, creation, editing and localStorage persistence.</p>
+          <span class="arrow">&rarr; Open demo</span>
+        </a>
+        <a href="examples/php-integration.html" class="example-card">
+          <h3>Standalone Builder</h3>
+          <p>Page builder without page manager. Shows event-based integration for PHP or any backend.</p>
+          <span class="arrow">&rarr; Open demo</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="container">
+      <p>MT Builder &middot; Built by <a href="https://github.com/carlosvidal">Carlos Vidal</a> &middot; <a href="https://github.com/carlosvidal/mtbuilder">GitHub</a></p>
+    </div>
+  </footer>
+
+  <script>
+    // Code tabs
+    document.querySelectorAll('.code-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.code-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.code-block').forEach(b => b.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+      });
+    });
+  </script>
+
+</body>
 </html>

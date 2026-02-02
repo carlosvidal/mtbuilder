@@ -5,6 +5,10 @@ import { PageBuilderEventHandler } from "./page-builder-events.js";
 import { I18n } from "../utils/i18n.js";
 
 export class PageManager extends HTMLElement {
+  static get observedAttributes() {
+    return ["lang"];
+  }
+
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
@@ -13,6 +17,12 @@ export class PageManager extends HTMLElement {
     this.i18n = I18n.getInstance();
     this.setupDataProvider();
     this.eventHandler = new PageBuilderEventHandler(this);
+  }
+
+  attributeChangedCallback(name, oldValue, newValue) {
+    if (name === "lang" && newValue && newValue !== oldValue) {
+      this._setLocale(newValue);
+    }
   }
 
   setupDataProvider() {
@@ -33,28 +43,22 @@ export class PageManager extends HTMLElement {
   }
 
   async connectedCallback() {
-    // Inicializar i18n antes de renderizar
-    await this.initializeI18n();
+    // Initialize i18n from lang attribute, or detect from browser
+    const lang = this.getAttribute("lang");
+    const locale = lang || this.i18n.detectLocale();
+    if (!this.i18n.translations[locale]) {
+      await this.i18n.setLocale(locale);
+    }
     this.render();
     this.loadPages();
   }
 
-  async initializeI18n() {
-    // Intentar cargar el idioma guardado
-    const savedLocale = localStorage.getItem("preferredLocale");
-
-    // Si no hay idioma guardado, detectar del navegador
-    const initialLocale = savedLocale || this.i18n.detectLocale();
-
-    // Cargar el idioma
-    await this.i18n.setLocale(initialLocale);
-
-    // Escuchar cambios de idioma para guardar la preferencia
-    window.addEventListener("localeChanged", (event) => {
-      const { locale } = event.detail;
-      localStorage.setItem("preferredLocale", locale);
-      this.render(); // Re-renderizar el componente
-    });
+  async _setLocale(locale) {
+    const i18n = this.i18n;
+    if (locale !== i18n.currentLocale || !i18n.translations[locale]) {
+      await i18n.setLocale(locale);
+      this.render();
+    }
   }
 
   async loadPages() {
@@ -177,10 +181,6 @@ export class PageManager extends HTMLElement {
     flex: 1;
   }
 
-  .language-selector {
-    margin-left: auto;
-  }
-
   .builder-container {
     height: calc(100vh - 60px);
     overflow: hidden;
@@ -197,30 +197,11 @@ export class PageManager extends HTMLElement {
           this.currentPageId
         }</small>
       </h1>
-      <div class="language-selector">
-            <select id="languageSelect">
-              <option value="es" ${
-                this.i18n.currentLocale === "es" ? "selected" : ""
-              }>Español</option>
-              <option value="en" ${
-                this.i18n.currentLocale === "en" ? "selected" : ""
-              }>English</option>
-              <option value="fr" ${
-                this.i18n.currentLocale === "fr" ? "selected" : ""
-              }>Français</option>
-            </select>
-          </div>
     </div>
     <div class="builder-container">
-      <page-builder page-id="${this.currentPageId}" mode="local"></page-builder>
+      <page-builder page-id="${this.currentPageId}" lang="${this.i18n.currentLocale}" mode="local"></page-builder>
     </div>
       `;
-
-      // Configurar selector de idioma
-      const languageSelect = this.shadowRoot.getElementById("languageSelect");
-      languageSelect?.addEventListener("change", async (e) => {
-        await this.i18n.setLocale(e.target.value);
-      });
 
       const backButton = this.shadowRoot.getElementById("backToList");
       backButton.addEventListener("click", () => {
@@ -304,19 +285,6 @@ export class PageManager extends HTMLElement {
          <div class="pages-header">
           <h1>${this.i18n.t("pages.list.title")}</h1>
           <div class="header-actions">
-            <div class="language-selector">
-              <select id="languageSelect">
-                <option value="es" ${
-                  this.i18n.currentLocale === "es" ? "selected" : ""
-                }>Español</option>
-                <option value="en" ${
-                  this.i18n.currentLocale === "en" ? "selected" : ""
-                }>English</option>
-                <option value="fr" ${
-                  this.i18n.currentLocale === "fr" ? "selected" : ""
-                }>Français</option>
-              </select>
-            </div>
             <button class="new-page-button" id="newPage">
               ${this.i18n.t("pages.list.create")}
             </button>
@@ -335,14 +303,6 @@ export class PageManager extends HTMLElement {
   }
 
   setupEventListeners() {
-    // Configurar el selector de idioma
-    const languageSelect = this.shadowRoot.getElementById("languageSelect");
-    if (languageSelect) {
-      languageSelect.addEventListener("change", async (e) => {
-        await this.i18n.setLocale(e.target.value);
-      });
-    }
-
     // Configurar el botón de nueva página
     const newPageButton = this.shadowRoot.getElementById("newPage");
     if (newPageButton) {

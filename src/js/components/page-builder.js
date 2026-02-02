@@ -151,9 +151,13 @@ class PageBuilder extends HTMLElement {
 
   async _initI18n(lang) {
     const i18n = I18n.getInstance();
-    if (!i18n._initialized || (lang && lang !== i18n.currentLocale)) {
-      const locale = lang || i18n.detectLocale();
-      await i18n.setLocale(locale);
+    const desiredLocale = lang || i18n.currentLocale;
+    // Only call setLocale if we need a different locale or translations aren't loaded yet
+    if (
+      (lang && lang !== i18n.currentLocale) ||
+      !i18n.translations[desiredLocale]
+    ) {
+      await i18n.setLocale(desiredLocale);
     }
   }
 
