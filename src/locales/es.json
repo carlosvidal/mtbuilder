@@ -24,7 +24,12 @@
                 "oneColumn": "1 Columna",
                 "twoColumns": "2 Columnas",
                 "threeColumns": "3 Columnas",
-                "fourColumns": "4 Columnas"
+                "fourColumns": "4 Columnas",
+                "sixColumns": "6 Columnas",
+                "group1col": "1 columna en móvil",
+                "group2col": "2 columnas en móvil",
+                "group3col": "3 columnas en móvil",
+                "mobileCols": "Columnas en móvil"
             },
             "principal": {
                 "title": "Ajustes Principales",
@@ -32,7 +37,7 @@
                 "layout": "Ajustes de Diseño"
             },
             "dropHint": "Arrastra y suelta elementos aquí",
-            "back": "Volver al panel lateral"
+            "back": "Regresar"
         },
         "canvas": {
             "empty": {

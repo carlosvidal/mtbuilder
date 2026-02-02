@@ -4,6 +4,7 @@ import { I18n } from "../utils/i18n.js";
 import { registerEditors } from "./register-editors.js";
 import { store } from "../utils/store.js";
 import { eventBus } from "../utils/event-bus.js";
+import { ROW_LAYOUTS } from "../utils/responsive-config.js";
 
 export class BuilderSidebar extends HTMLElement {
   constructor() {
@@ -15,13 +16,12 @@ export class BuilderSidebar extends HTMLElement {
     this.selectedElement = null;
     this.i18n = I18n.getInstance();
 
-    // Define available rows and elements
-    this.rows = [
-      { type: "row-1", columns: 1 },
-      { type: "row-2", columns: 2 },
-      { type: "row-3", columns: 3 },
-      { type: "row-4", columns: 4 },
-    ];
+    // Define available rows from responsive layouts
+    this.rows = ROW_LAYOUTS.map((layout) => ({
+      type: `row-${layout.desktop}`,
+      desktop: layout.desktop,
+      mobile: layout.mobile,
+    }));
 
     this.elements = [
       { type: "heading" },
@@ -149,10 +149,9 @@ export class BuilderSidebar extends HTMLElement {
       <div class="editor-container">
         <div class="editor-header">
           <button class="back-button" id="backButton">
-            <builder-icon name="back" size="24"></builder-icon>
-            <span>Back</span>
+            <builder-icon name="back" size="20"></builder-icon>
+            <span>${this.i18n.t("builder.sidebar.back") || "Regresar"}</span>
           </button>
-          <h3 class="editor-title">Editar Fila</h3>
         </div>
         <div class="editor-content">
           <row-editor id="rowEditor"></row-editor>
@@ -227,39 +226,40 @@ export class BuilderSidebar extends HTMLElement {
   }
 
   renderRowsTab() {
-    const getColumnKey = (columns) => {
-      switch (columns) {
-        case 1:
-          return "oneColumn";
-        case 2:
-          return "twoColumns";
-        case 3:
-          return "threeColumns";
-        case 4:
-          return "fourColumns";
-        default:
-          return "oneColumn";
-      }
-    };
+    // Group rows by mobile column count
+    const groups = [
+      { mobile: 1, label: this.i18n.t("builder.sidebar.rows.group1col") || "1 col mobile" },
+      { mobile: 2, label: this.i18n.t("builder.sidebar.rows.group2col") || "2 cols mobile" },
+      { mobile: 3, label: this.i18n.t("builder.sidebar.rows.group3col") || "3 cols mobile" },
+    ];
 
     return `
       <div class="tab-content">
-        <div class="elements-container">
-          ${this.rows
-            .map(
-              (row) => `
-              <div class="builder-element" data-type="${row.type}">
-                <div class="element-icon">
-                  <builder-icon name="${row.type}" size="24"></builder-icon>
+        ${groups
+          .map((group) => {
+            const groupRows = this.rows.filter((r) => r.mobile === group.mobile);
+            if (groupRows.length === 0) return "";
+            return `
+              <div class="row-group">
+                <div class="row-group-label">${group.label}</div>
+                <div class="elements-container">
+                  ${groupRows
+                    .map(
+                      (row) => `
+                      <div class="builder-element" data-type="${row.type}" data-desktop="${row.desktop}" data-mobile="${row.mobile}">
+                        <div class="element-icon">
+                          <builder-icon name="${row.type}" size="24"></builder-icon>
+                        </div>
+                        <div class="element-label">${row.desktop} → ${row.mobile}</div>
+                      </div>
+                    `
+                    )
+                    .join("")}
                 </div>
-                <div class="element-label">${this.i18n.t(
-                  `builder.sidebar.rows.${getColumnKey(row.columns)}`
-                )}</div>
               </div>
-            `
-            )
-            .join("")}
-        </div>
+            `;
+          })
+          .join("")}
       </div>
     `;
   }
@@ -360,6 +360,16 @@ export class BuilderSidebar extends HTMLElement {
         if (element.dataset.type.startsWith("row-")) {
           e.dataTransfer.setData("text/plain", element.dataset.type);
           e.dataTransfer.setData("application/x-builder-element", element.dataset.type);
+          // Include responsive config if available
+          if (element.dataset.desktop && element.dataset.mobile) {
+            e.dataTransfer.setData(
+              "application/x-responsive",
+              JSON.stringify({
+                desktop: parseInt(element.dataset.desktop, 10),
+                mobile: parseInt(element.dataset.mobile, 10),
+              })
+            );
+          }
         } else {
           e.dataTransfer.setData(
             "application/x-builder-element",
@@ -491,12 +501,9 @@ export class BuilderSidebar extends HTMLElement {
       <div class="editor-container">
         <div class="editor-header">
           <button class="back-button" id="backButton">
-            <builder-icon name="back" size="24"></builder-icon>
-            <span>Back</span>
+            <builder-icon name="back" size="20"></builder-icon>
+            <span>${this.i18n.t("builder.sidebar.back") || "Regresar"}</span>
           </button>
-          <h3 class="editor-title">Edit ${
-            this.selectedElement?.type || "Element"
-          }</h3>
         </div>
         <div class="editor-content">
           <element-editor></element-editor>
@@ -625,6 +632,19 @@ export class BuilderSidebar extends HTMLElement {
         grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
         gap: 1rem;
       }
+
+      .row-group {
+        margin-bottom: 1.5rem;
+      }
+
+      .row-group-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #999;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.5rem;
+      }
   
       .builder-element {
         aspect-ratio: 1;
@@ -699,31 +719,28 @@ export class BuilderSidebar extends HTMLElement {
       .editor-header {
         display: flex;
         align-items: center;
-        padding: 1rem;
+        padding: 0.65rem 1rem;
         background: #f5f5f5;
         border-bottom: 1px solid #ddd;
+        gap: 0.5rem;
       }
-  
+
       .back-button {
-        padding: 0.5rem;
+        padding: 0.25rem 0.5rem;
         background: none;
         border: none;
         cursor: pointer;
         display: flex;
         align-items: center;
-        gap: 0.5rem;
+        gap: 0.25rem;
         color: #666;
+        border-radius: 4px;
+        font-size: 0.875rem;
       }
-  
+
       .back-button:hover {
         color: #2196F3;
-      }
-  
-      .editor-title {
-        margin: 0 0 0 1rem;
-        font-size: 1rem;
-        font-weight: normal;
-        color: #333;
+        background: rgba(33, 150, 243, 0.08);
       }
   
       .editor-content {

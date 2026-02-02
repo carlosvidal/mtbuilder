@@ -768,7 +768,7 @@ export class BuilderCanvas extends HTMLElement {
   }
 
   // 5. Manipulación de filas
-  addRow(rowType) {
+  addRow(rowType, responsiveConfig) {
     const state = store.getState();
     const timestamp = Date.now();
     const numColumns = parseInt(rowType.split("-")[1], 10);
@@ -782,6 +782,10 @@ export class BuilderCanvas extends HTMLElement {
         elements: [],
       })),
     };
+
+    if (responsiveConfig) {
+      newRow.responsive = responsiveConfig;
+    }
 
     store.setState({
       ...state,
@@ -885,6 +889,15 @@ export class BuilderCanvas extends HTMLElement {
         "application/x-builder-element"
       );
 
+      // Read responsive config from drag data
+      let responsiveConfig = null;
+      try {
+        const responsiveData = e.dataTransfer.getData("application/x-responsive");
+        if (responsiveData) {
+          responsiveConfig = JSON.parse(responsiveData);
+        }
+      } catch (_) { /* ignore parse errors */ }
+
       // Check if drop target is inside a column-dropzone
       const dropTarget = e.target.closest(".column-dropzone");
 
@@ -896,12 +909,12 @@ export class BuilderCanvas extends HTMLElement {
           // Enforce 1-level nesting: block if already inside a nested row
           const isNestedColumn = dropTarget.closest(".nested-row-element");
           if (!isNestedColumn) {
-            this.addNestedRowToColumn(rowEl.dataset.id, columnEl.dataset.id, rowType);
+            this.addNestedRowToColumn(rowEl.dataset.id, columnEl.dataset.id, rowType, responsiveConfig);
           }
         }
       } else if (rowType?.startsWith("row-")) {
         // Top-level row drop on canvas
-        this.addRow(rowType);
+        this.addRow(rowType, responsiveConfig);
       } else if (elementType && !elementType.startsWith("row-")) {
         // Regular element drop on column
         if (dropTarget) {
@@ -1228,7 +1241,7 @@ export class BuilderCanvas extends HTMLElement {
   }
 
   handleRowUpdated(event) {
-    const { rowId, styles, columns, type } = event.detail;
+    const { rowId, styles, columns, type, responsive } = event.detail;
 
     const state = store.getState();
     if (!state.rows) {
@@ -1253,6 +1266,10 @@ export class BuilderCanvas extends HTMLElement {
       columns: columns || updatedRows[rowIndex].columns,
       type: type || updatedRows[rowIndex].type,
     };
+
+    if (responsive) {
+      updatedRows[rowIndex].responsive = responsive;
+    }
 
 
     // Actualizar store y emitir cambios
@@ -1454,7 +1471,7 @@ export class BuilderCanvas extends HTMLElement {
     store.setState({ ...state, rows: updatedRows, selectedElement: null });
   }
 
-  addNestedRowToColumn(rowId, columnId, rowType) {
+  addNestedRowToColumn(rowId, columnId, rowType, responsiveConfig) {
     const numColumns = parseInt(rowType.split("-")[1], 10);
     const timestamp = Date.now();
     const rand = () => Math.random().toString(36).slice(2, 9);
@@ -1471,6 +1488,10 @@ export class BuilderCanvas extends HTMLElement {
       styles: {},
       attributes: { columnCount: numColumns },
     };
+
+    if (responsiveConfig) {
+      nestedRowElement.responsive = responsiveConfig;
+    }
 
     const state = store.getState();
     const updatedRows = state.rows.map((row) => {
@@ -1832,19 +1853,28 @@ export class BuilderCanvas extends HTMLElement {
                   ...col,
                   elements: restoreElements(col.elements),
                 }));
+                if (element.responsive) {
+                  restored.responsive = element.responsive;
+                }
               }
               return restored;
             });
           };
 
-          initialState.rows = savedData.rows.map((row) => ({
-            ...row,
-            styles: row.styles || {},
-            columns: row.columns.map((column) => ({
-              ...column,
-              elements: restoreElements(column.elements),
-            })),
-          }));
+          initialState.rows = savedData.rows.map((row) => {
+            const restoredRow = {
+              ...row,
+              styles: row.styles || {},
+              columns: row.columns.map((column) => ({
+                ...column,
+                elements: restoreElements(column.elements),
+              })),
+            };
+            if (row.responsive) {
+              restoredRow.responsive = row.responsive;
+            }
+            return restoredRow;
+          });
         }
         if (savedData.globalSettings) {
           initialState.globalSettings = {
@@ -2162,6 +2192,9 @@ export class BuilderCanvas extends HTMLElement {
             id: col.id,
             elements: serializeElements(col.elements),
           }));
+          if (element.responsive) {
+            base.responsive = element.responsive;
+          }
         }
         return base;
       });
@@ -2169,15 +2202,21 @@ export class BuilderCanvas extends HTMLElement {
 
     return {
       globalSettings: state.globalSettings || {},
-      rows: (state.rows || []).map((row) => ({
-        id: row.id,
-        type: row.type,
-        styles: row.styles || {},
-        columns: (row.columns || []).map((column) => ({
-          id: column.id,
-          elements: serializeElements(column.elements),
-        })),
-      })),
+      rows: (state.rows || []).map((row) => {
+        const serialized = {
+          id: row.id,
+          type: row.type,
+          styles: row.styles || {},
+          columns: (row.columns || []).map((column) => ({
+            id: column.id,
+            elements: serializeElements(column.elements),
+          })),
+        };
+        if (row.responsive) {
+          serialized.responsive = row.responsive;
+        }
+        return serialized;
+      }),
     };
   }
 

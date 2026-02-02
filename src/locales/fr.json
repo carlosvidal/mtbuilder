@@ -24,7 +24,12 @@
                 "oneColumn": "1 Colonne",
                 "twoColumns": "2 Colonnes",
                 "threeColumns": "3 Colonnes",
-                "fourColumns": "4 Colonnes"
+                "fourColumns": "4 Colonnes",
+                "sixColumns": "6 Colonnes",
+                "group1col": "1 colonne sur mobile",
+                "group2col": "2 colonnes sur mobile",
+                "group3col": "3 colonnes sur mobile",
+                "mobileCols": "Colonnes sur mobile"
             },
             "principal": {
                 "title": "Paramètres Principaux",
@@ -32,7 +37,7 @@
                 "layout": "Paramètres de Mise en Page"
             },
             "dropHint": "Glissez et déposez les éléments ici",
-            "back": "Retour au panneau latéral"
+            "back": "Retour"
         },
         "canvas": {
             "empty": {

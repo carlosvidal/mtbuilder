@@ -1,5 +1,6 @@
 // row-editor.js
 import { BaseElementEditor } from "./base-element-editor.js";
+import { getMobileOptionsForDesktop } from "../../utils/responsive-config.js";
 
 export class RowEditor extends BaseElementEditor {
   constructor() {
@@ -19,14 +20,31 @@ export class RowEditor extends BaseElementEditor {
         <div class="editor-section">
           <h3>Editar Fila</h3>
           <div class="form-group">
-            <label>Número de columnas</label>
+            <label>Columnas (desktop)</label>
             <select data-property="columns" value="${
               this.currentRow?.columns?.length || 1
             }">
-              <option value="1">1 Columna</option>
-              <option value="2">2 Columnas</option>
-              <option value="3">3 Columnas</option>
-              <option value="4">4 Columnas</option>
+              ${[1, 2, 3, 4, 6]
+                .map(
+                  (n) =>
+                    `<option value="${n}" ${
+                      (this.currentRow?.columns?.length || 1) === n ? "selected" : ""
+                    }>${n} ${n === 1 ? "Columna" : "Columnas"}</option>`
+                )
+                .join("")}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Columnas (mobile)</label>
+            <select data-property="mobileCols">
+              ${this.getMobileOptions()
+                .map(
+                  (m) =>
+                    `<option value="${m}" ${
+                      this.getCurrentMobileCols() === m ? "selected" : ""
+                    }>${m} ${m === 1 ? "Columna" : "Columnas"}</option>`
+                )
+                .join("")}
             </select>
           </div>
           
@@ -143,6 +161,10 @@ export class RowEditor extends BaseElementEditor {
 
         if (property === "columns") {
           this.updateColumns(value);
+          // After changing desktop cols, update mobile options and re-render
+          this.render();
+        } else if (property === "mobileCols") {
+          this.updateMobileCols(parseInt(value));
         } else {
           this.updateRowStyle(property, value);
         }
@@ -156,11 +178,21 @@ export class RowEditor extends BaseElementEditor {
     });
   }
 
+  getMobileOptions() {
+    const desktopCols = this.currentRow?.columns?.length || 1;
+    const options = getMobileOptionsForDesktop(desktopCols);
+    return options.length > 0 ? options : [1];
+  }
+
+  getCurrentMobileCols() {
+    return this.currentRow?.responsive?.mobile || this.getMobileOptions()[0] || 1;
+  }
+
   updateColumns(numColumns) {
     if (!this.currentRow) return;
 
     numColumns = parseInt(numColumns);
-    if (isNaN(numColumns) || numColumns < 1 || numColumns > 4) return;
+    if (isNaN(numColumns) || numColumns < 1 || numColumns > 6) return;
 
     const currentColumns = this.currentRow.columns.length;
 
@@ -186,6 +218,20 @@ export class RowEditor extends BaseElementEditor {
       this.currentRow.columns = this.currentRow.columns.slice(0, numColumns);
     }
 
+    // Update responsive config after column change
+    const mobileOptions = getMobileOptionsForDesktop(numColumns);
+    const currentMobile = this.currentRow.responsive?.mobile;
+    const validMobile = mobileOptions.includes(currentMobile) ? currentMobile : mobileOptions[0];
+    this.currentRow.responsive = { desktop: numColumns, mobile: validMobile };
+    this.currentRow.type = `row-${numColumns}`;
+
+    this.emitUpdateEvent();
+  }
+
+  updateMobileCols(mobileCols) {
+    if (!this.currentRow) return;
+    const desktopCols = this.currentRow.columns?.length || 1;
+    this.currentRow.responsive = { desktop: desktopCols, mobile: mobileCols };
     this.emitUpdateEvent();
   }
 
@@ -219,6 +265,7 @@ export class RowEditor extends BaseElementEditor {
           styles: this.currentRow.styles,
           columns: this.currentRow.columns,
           type: this.currentRow.type,
+          responsive: this.currentRow.responsive,
         },
       })
     );

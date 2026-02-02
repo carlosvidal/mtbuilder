@@ -66,6 +66,17 @@ class BuilderIcon extends HTMLElement {
           { type: "line", x1: "16.5", y1: "3", x2: "16.5", y2: "21" },
         ],
       },
+      "row-6": {
+        viewBox: "0 0 24 24",
+        elements: [
+          { type: "rect", width: "18", height: "18", x: "3", y: "3", rx: "2" },
+          { type: "line", x1: "6", y1: "3", x2: "6", y2: "21" },
+          { type: "line", x1: "9", y1: "3", x2: "9", y2: "21" },
+          { type: "line", x1: "12", y1: "3", x2: "12", y2: "21" },
+          { type: "line", x1: "15", y1: "3", x2: "15", y2: "21" },
+          { type: "line", x1: "18", y1: "3", x2: "18", y2: "21" },
+        ],
+      },
 
       // Iconos de elementos
       heading: {

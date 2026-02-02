@@ -324,10 +324,29 @@ class CanvasViewSwitcher extends HTMLElement {
   }
 
   updatePreviewView(data) {
-    const previewContent = this.shadowRoot.querySelector(".preview-content");
-    if (previewContent) {
-      previewContent.innerHTML = sanitizeHTML(ExportUtils.generatePreviewHTML(data));
+    const previewFrame = this.shadowRoot.querySelector(".preview-frame");
+    if (!previewFrame) return;
+
+    // Use an iframe with srcdoc so media queries apply to the iframe viewport
+    let iframe = previewFrame.querySelector("iframe");
+    if (!iframe) {
+      previewFrame.innerHTML = "";
+      iframe = document.createElement("iframe");
+      previewFrame.appendChild(iframe);
+
+      // Auto-resize iframe to match content height
+      iframe.addEventListener("load", () => {
+        try {
+          const body = iframe.contentDocument?.body;
+          if (body) {
+            iframe.style.height = body.scrollHeight + "px";
+          }
+        } catch (_) { /* cross-origin safety */ }
+      });
     }
+
+    const previewHTML = ExportUtils.generateExportableHTML(data);
+    iframe.srcdoc = previewHTML;
   }
 
   updateJsonView(data) {
@@ -484,15 +503,23 @@ class CanvasViewSwitcher extends HTMLElement {
           height: 100%;
           padding: 2rem;
           background: #f8f9fa;
+          overflow: auto;
         }
 
         .preview-frame {
           width: 100%;
           margin: 0 auto;
           background: white;
-          min-height: 100vh;
+          min-height: 100%;
           box-shadow: 0 0 20px rgba(0,0,0,0.1);
-          transition: all 0.3s ease;
+          transition: max-width 0.3s ease;
+        }
+
+        .preview-frame iframe {
+          width: 100%;
+          border: none;
+          display: block;
+          min-height: 100vh;
         }
 
         .preview-frame.mobile {
@@ -587,9 +614,7 @@ class CanvasViewSwitcher extends HTMLElement {
           <div class="view preview-view ${
             this.currentView === "preview" ? "active" : ""
           }">
-            <div class="preview-frame desktop">
-              <div class="preview-content"></div>
-            </div>
+            <div class="preview-frame desktop"></div>
           </div>
 
           <div class="view code-view html-view ${

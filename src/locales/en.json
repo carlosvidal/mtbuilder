@@ -24,7 +24,12 @@
                 "oneColumn": "1 Column",
                 "twoColumns": "2 Columns",
                 "threeColumns": "3 Columns",
-                "fourColumns": "4 Columns"
+                "fourColumns": "4 Columns",
+                "sixColumns": "6 Columns",
+                "group1col": "1 column on mobile",
+                "group2col": "2 columns on mobile",
+                "group3col": "3 columns on mobile",
+                "mobileCols": "Columns on mobile"
             },
             "principal": {
                 "title": "Main Settings",
@@ -32,7 +37,7 @@
                 "layout": "Layout Settings"
             },
             "dropHint": "Drag and drop elements here",
-            "back": "Back to sidebar"
+            "back": "Back"
         },
         "canvas": {
             "empty": {

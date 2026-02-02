@@ -1,5 +1,6 @@
 // export-utils.js
 import { sanitizeHTML } from "./sanitize.js";
+import { BREAKPOINT, getResponsiveClass } from "./responsive-config.js";
 
 export class ExportUtils {
   static generateExportableHTML(data) {
@@ -20,12 +21,15 @@ export class ExportUtils {
       `background-color: ${globalStyles.backgroundColor || "#ffffff"}`,
     ].join("; ");
 
+    const responsiveStyles = this.generateResponsiveStyles(data.rows || []);
+
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Exported Page</title>
+  ${responsiveStyles ? `<style>\n${responsiveStyles}\n</style>` : ""}
 </head>
 <body style="${bodyStyle}">
   <div style="${wrapperStyle}">
@@ -47,7 +51,10 @@ export class ExportUtils {
       "margin: 0 auto",
     ].join("; ");
 
-    return `<div style="${wrapperStyle}">${this._renderRows(data.rows)}</div>`;
+    const responsiveStyles = this.generateResponsiveStyles(data.rows || []);
+    const styleBlock = responsiveStyles ? `<style>${responsiveStyles}</style>` : "";
+
+    return `${styleBlock}<div style="${wrapperStyle}">${this._renderRows(data.rows)}</div>`;
   }
 
   static generateHTML(data) {
@@ -59,6 +66,13 @@ export class ExportUtils {
     return rows
       .map((row) => {
         const rowCustomStyles = this.generateStyleString(row.styles || {});
+        const numCols = row.columns?.length || 1;
+        const pct = (100 / numCols).toFixed(4);
+        const responsive = row.responsive;
+        const cssClass = responsive
+          ? getResponsiveClass(responsive.desktop, responsive.mobile)
+          : "";
+
         const rowStyle = [
           "display: flex",
           "flex-wrap: wrap",
@@ -69,7 +83,7 @@ export class ExportUtils {
 
         const columns = row.columns
           .map((column) => {
-            const colStyle = "flex: 1; min-width: 0; padding: 10px";
+            const colStyle = `flex: 0 0 ${pct}%; max-width: ${pct}%; min-width: 0; padding: 10px; box-sizing: border-box`;
             const elements = column.elements
               .map((element) => this._renderElement(element))
               .join("\n");
@@ -77,7 +91,7 @@ export class ExportUtils {
           })
           .join("\n");
 
-        return `<div style="${rowStyle}">${columns}</div>`;
+        return `<div${cssClass ? ` class="${cssClass}"` : ""} style="${rowStyle}">${columns}</div>`;
       })
       .join("\n");
   }
@@ -88,6 +102,13 @@ export class ExportUtils {
     switch (element.type) {
       case "row": {
         const nestedColumns = element.columns || [];
+        const numCols = nestedColumns.length;
+        const pct = (100 / numCols).toFixed(4);
+        const responsive = element.responsive;
+        const cssClass = responsive
+          ? getResponsiveClass(responsive.desktop, responsive.mobile)
+          : "";
+
         const nestedRowStyle = [
           "display: flex",
           "flex-wrap: wrap",
@@ -95,14 +116,14 @@ export class ExportUtils {
         ].filter(Boolean).join("; ");
 
         const nestedColumnsHTML = nestedColumns.map((col) => {
-          const colStyle = "flex: 1; min-width: 0; padding: 10px";
+          const colStyle = `flex: 0 0 ${pct}%; max-width: ${pct}%; min-width: 0; padding: 10px; box-sizing: border-box`;
           const elements = (col.elements || [])
             .map((el) => this._renderElement(el))
             .join("\n");
           return `<div style="${colStyle}">${elements}</div>`;
         }).join("\n");
 
-        return `<div style="${nestedRowStyle}">${nestedColumnsHTML}</div>`;
+        return `<div${cssClass ? ` class="${cssClass}"` : ""} style="${nestedRowStyle}">${nestedColumnsHTML}</div>`;
       }
 
       case "text":
@@ -205,6 +226,43 @@ export class ExportUtils {
         return `${cssKey}: ${value}`;
       })
       .join("; ");
+  }
+
+  static generateResponsiveStyles(rows) {
+    const classes = new Set();
+
+    const collectClasses = (items) => {
+      for (const item of items) {
+        const responsive = item.responsive;
+        if (responsive && responsive.desktop !== responsive.mobile) {
+          classes.add(getResponsiveClass(responsive.desktop, responsive.mobile));
+        }
+        // Check nested row elements inside columns
+        if (item.columns) {
+          for (const col of item.columns) {
+            if (col.elements) {
+              collectClasses(col.elements);
+            }
+          }
+        }
+      }
+    };
+
+    collectClasses(rows);
+
+    if (classes.size === 0) return "";
+
+    const rules = [];
+    for (const cls of classes) {
+      // Parse desktop and mobile from class name: mt-row-d{desktop}-m{mobile}
+      const match = cls.match(/mt-row-d(\d+)-m(\d+)/);
+      if (!match) continue;
+      const mobile = parseInt(match[2], 10);
+      const mobilePct = (100 / mobile).toFixed(4);
+      rules.push(`  .${cls} > div { flex: 0 0 ${mobilePct}% !important; max-width: ${mobilePct}% !important; }`);
+    }
+
+    return `@media (max-width: ${BREAKPOINT}px) {\n${rules.join("\n")}\n}`;
   }
 
   static formatHTML(html, indent = "  ") {
