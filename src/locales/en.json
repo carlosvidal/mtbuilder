@@ -11,6 +11,7 @@
                 "text": "Text",
                 "image": "Image",
                 "button": "Button",
+                "link": "Link",
                 "table": "Table",
                 "list": "List",
                 "video": "Video",
@@ -128,6 +129,10 @@
                     "title": "Edit Spacer",
                     "height": "Height",
                     "mobileVisibility": "Mobile Visibility"
+                },
+                "html": {
+                    "title": "Custom HTML",
+                    "code": "HTML Code"
                 }
             }
         },

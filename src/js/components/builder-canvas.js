@@ -265,44 +265,10 @@ export class BuilderCanvas extends HTMLElement {
 .builder-row {
   position: relative;
   margin: 0.5rem 0;
-  padding: 1rem 3rem 1rem 1rem;
   background: white;
-  border: 1px solid transparent;
   border-radius: 4px;
   transition: all 0.2s ease;
   cursor: default;
-}
-
-.row-handle {
-  position: absolute;
-  left: -25px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 24px;
-  height: 24px;
-  background: white;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: grab;
-  opacity: 0;
-  transition: opacity 0.2s;
-  color: #666;
-  z-index: 10;
-}
-
-.builder-row:hover {
-  border-color: #e0e0e0;
-}
-
-.builder-row:hover .row-handle {
-  opacity: 1;
-}
-
-.row-handle:active {
-  cursor: grabbing;
 }
 
 .builder-row:active {
@@ -452,11 +418,10 @@ export class BuilderCanvas extends HTMLElement {
 
 .column-dropzone {
   min-height: 50px;
-  border: 2px dashed #ddd;
+  border: 2px dashed transparent;
   border-radius: 4px;
-  padding: 1rem;
+  padding: 0.5rem;
   transition: all 0.2s ease;
-  margin: 0.5rem;
 }
 
 .column-dropzone.dragover {
@@ -492,8 +457,8 @@ export class BuilderCanvas extends HTMLElement {
 }
 
 .builder-element:hover {
-  border-color: #2196F3;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  outline: 1px solid #2196F3;
+  outline-offset: -1px;
 }
 
     .empty-column {

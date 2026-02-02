@@ -89,121 +89,97 @@ class RowControls extends HTMLElement {
           display: block;
           position: relative;
         }
-  
+
         .row-container {
           position: relative;
-          padding: 1rem;
-          background: white;
-          border: 1px solid ${selected ? "#2196F3" : "transparent"};
+          padding: 0.75rem;
+          border: 1px solid ${selected ? "#2196F3" : "#eee"};
           border-radius: 4px;
           transition: all 0.2s ease;
         }
-  
+
         .row-container:hover {
-          border-color: #e0e0e0;
+          border-color: #ccc;
         }
-  
-        .controls {
-          position: absolute;
-          right: 0.5rem;
-          top: 50%;
-          transform: translateY(-50%);
-          display: flex;
-          gap: 0.25rem;
-          opacity: 0;
-          transition: opacity 0.2s;
-          z-index: 10;
-        }
-  
-        .row-container:hover .controls {
-          opacity: 1;
-        }
-  
+
         button {
-          padding: 0.25rem;
+          position: absolute;
+          width: 24px;
+          height: 24px;
+          padding: 0;
           background: white;
           border: 1px solid #ddd;
           border-radius: 4px;
           cursor: pointer;
           display: flex;
           align-items: center;
-          color: #666;
-        }
-  
-        button:hover {
-          background: #f5f5f5;
-          border-color: #ccc;
-          color: #333;
-        }
-  
-        .drag-handle {
-          position: absolute;
-          left: -25px;
-          top: 50%;
-          transform: translateY(-50%);
-          width: 24px;
-          height: 24px;
-          background: white;
-          border: 1px solid #ddd;
-          border-radius: 4px;
-          display: flex;
-          align-items: center;
           justify-content: center;
-          cursor: grab;
+          color: #666;
           opacity: 0;
           transition: opacity 0.2s;
+          z-index: 10;
         }
-  
-        .row-container:hover .drag-handle {
+
+        .row-container:hover button {
           opacity: 1;
         }
-  
+
+        button:hover {
+          background: #f5f5f5;
+          border-color: #999;
+          color: #333;
+        }
+
+        .drag-handle {
+          left: -12px;
+          top: 50%;
+          transform: translateY(-50%);
+          cursor: grab;
+        }
+
         .drag-handle:active {
           cursor: grabbing;
         }
-  
+
+        .delete-btn {
+          top: -12px;
+          left: 50%;
+          transform: translateX(-50%);
+        }
+
+        .delete-btn:hover {
+          background: #dc3545;
+          border-color: #dc3545;
+          color: white;
+        }
+
+        .duplicate-btn {
+          right: -12px;
+          top: 50%;
+          transform: translateY(-50%);
+        }
+
         .add-btn {
-          position: absolute;
           bottom: -12px;
           left: 50%;
           transform: translateX(-50%);
-          width: 24px;
-          height: 24px;
-          padding: 0;
-          background: #2196F3;
-          border: none;
-          border-radius: 50%;
-          color: white;
-          opacity: 0;
-          transition: opacity 0.2s, transform 0.2s;
-        }
-  
-        .add-btn:hover {
-          background: #1976D2;
-          transform: translateX(-50%) scale(1.1);
-        }
-  
-        .row-container:hover .add-btn {
-          opacity: 1;
         }
       `;
 
     this.shadowRoot.innerHTML = `
         <style>${styles}</style>
         <div class="row-container">
-          <div class="drag-handle" title="Arrastrar para reordenar">
-            <builder-icon name="move" size="16"></builder-icon>
-          </div>
-          <div class="controls">
-            <button class="duplicate-btn" title="Duplicate row">
-              <builder-icon name="copy" size="16"></builder-icon>
-            </button>
-            <button class="delete-btn" title="Delete row">
-              <builder-icon name="delete" size="16"></builder-icon>
-            </button>
-          </div>
-          <button class="add-btn" title="Add row below">
-            <builder-icon name="plus" size="16"></builder-icon>
+          <button class="drag-handle" title="Arrastrar">
+            <builder-icon name="move" size="14"></builder-icon>
+          </button>
+          <button class="delete-btn" title="Eliminar fila">
+            <builder-icon name="delete" size="14"></builder-icon>
+          </button>
+          <button class="duplicate-btn" title="Duplicar fila">
+            <builder-icon name="copy" size="14"></builder-icon>
+          </button>
+          <button class="add-btn" title="Agregar fila">
+            <builder-icon name="plus" size="14"></builder-icon>
           </button>
           <slot></slot>
         </div>

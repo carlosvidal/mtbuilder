@@ -11,6 +11,7 @@
                 "text": "Texte",
                 "image": "Image",
                 "button": "Bouton",
+                "link": "Lien",
                 "table": "Tableau",
                 "list": "Liste",
                 "video": "Vidéo",
@@ -128,6 +129,10 @@
                     "title": "Modifier l'espace",
                     "height": "Hauteur",
                     "mobileVisibility": "Visibilité mobile"
+                },
+                "html": {
+                    "title": "HTML Personnalisé",
+                    "code": "Code HTML"
                 }
             }
         },
