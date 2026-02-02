@@ -477,6 +477,10 @@ export class BuilderCanvas extends HTMLElement {
   min-height: 40px;
 }
 
+.video-container iframe {
+  pointer-events: none;
+}
+
     .empty-column {
       height: 100%;
       min-height: 100px;

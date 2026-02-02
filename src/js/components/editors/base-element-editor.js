@@ -20,16 +20,18 @@ export class BaseElementEditor extends HTMLElement {
       .querySelectorAll("input, select, textarea")
       .forEach((input) => {
         const property = input.dataset.property;
-        const isAttributeField = ["src", "alt", "href", "target", "type"].includes(property);
+        const isAttributeField = ["src", "alt", "href", "target", "type", "aspectRatio", "controls", "autoplay"].includes(property);
 
         const updateHandler = (e) => {
           if (!this.currentElement) return;
 
           const prop = e.target.dataset.property;
           const value =
-            e.target.type === "number"
-              ? parseFloat(e.target.value)
-              : e.target.value;
+            e.target.type === "checkbox"
+              ? e.target.checked
+              : e.target.type === "number"
+                ? parseFloat(e.target.value)
+                : e.target.value;
 
           this.updateElementProperty(prop, value);
           this.emitUpdateEvent();
@@ -70,7 +72,7 @@ export class BaseElementEditor extends HTMLElement {
   updateElementProperty(property, value) {
     if (property === "tag") {
       this.currentElement.tag = value;
-    } else if (["src", "alt", "href", "target", "type"].includes(property)) {
+    } else if (["src", "alt", "href", "target", "type", "aspectRatio", "controls", "autoplay"].includes(property)) {
       this.currentElement.attributes = {
         ...this.currentElement.attributes,
         [property]: value,
