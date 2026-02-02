@@ -6,6 +6,7 @@ export class BaseElementEditor extends HTMLElement {
     super();
     this.attachShadow({ mode: "open" });
     this.currentElement = null;
+    this._debounceTimers = new Map();
   }
 
   setElement(element) {
@@ -18,24 +19,47 @@ export class BaseElementEditor extends HTMLElement {
     this.shadowRoot
       .querySelectorAll("input, select, textarea")
       .forEach((input) => {
+        const property = input.dataset.property;
+        const isAttributeField = ["src", "alt", "href", "target", "type"].includes(property);
+
         const updateHandler = (e) => {
           if (!this.currentElement) return;
 
-          const property = e.target.dataset.property;
+          const prop = e.target.dataset.property;
           const value =
             e.target.type === "number"
               ? parseFloat(e.target.value)
               : e.target.value;
 
-          this.updateElementProperty(property, value);
+          this.updateElementProperty(prop, value);
           this.emitUpdateEvent();
         };
 
-        if (
-          input.type === "text" ||
-          input.type === "color" ||
-          input.type === "range"
-        ) {
+        const debouncedUpdateHandler = (e) => {
+          if (!this.currentElement) return;
+
+          const prop = e.target.dataset.property;
+          const value = e.target.value;
+
+          // Update the local model immediately (no visual lag)
+          this.updateElementProperty(prop, value);
+
+          // Debounce the event emission to avoid excessive re-renders
+          if (this._debounceTimers.has(prop)) {
+            clearTimeout(this._debounceTimers.get(prop));
+          }
+          this._debounceTimers.set(prop, setTimeout(() => {
+            this._debounceTimers.delete(prop);
+            this.emitUpdateEvent();
+          }, 300));
+        };
+
+        if (input.type === "color" || input.type === "range") {
+          input.addEventListener("input", updateHandler);
+        } else if (input.type === "text" && isAttributeField) {
+          // Debounce text inputs for attribute fields (src, alt, href, etc.)
+          input.addEventListener("input", debouncedUpdateHandler);
+        } else if (input.type === "text") {
           input.addEventListener("input", updateHandler);
         } else {
           input.addEventListener("change", updateHandler);

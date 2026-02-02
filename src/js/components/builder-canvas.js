@@ -117,10 +117,6 @@ export class BuilderCanvas extends HTMLElement {
     if (this._elementUpdatedHandler) {
       eventBus.off("elementUpdated", this._elementUpdatedHandler);
     }
-    if (this.elementUpdateListener) {
-      eventBus.off("elementUpdated", this.elementUpdateListener);
-    }
-    
     // Limpiar row control events
     eventBus.off("rowDeleted");
     eventBus.off("rowDuplicated");
@@ -1021,10 +1017,6 @@ export class BuilderCanvas extends HTMLElement {
   }
 
   setupElementSelection() {
-    if (this.elementUpdateListener) {
-      eventBus.off("elementUpdated", this.elementUpdateListener);
-    }
-
     const elements = this.shadowRoot.querySelectorAll(".builder-element");
 
     elements.forEach((element) => {
@@ -1036,7 +1028,6 @@ export class BuilderCanvas extends HTMLElement {
       element.addEventListener("click", (e) => {
         e.stopPropagation();
         e.preventDefault();
-
 
         if (e.target.isContentEditable) {
           return;
@@ -1059,17 +1050,9 @@ export class BuilderCanvas extends HTMLElement {
 
         if (elementData) {
           eventBus.emit("elementSelected", elementData);
-        } else {
         }
       });
     });
-
-    this.elementUpdateListener = (data) => {
-      const { elementId } = data;
-      this.updateElementStyles(elementId, data);
-    };
-
-    eventBus.on("elementUpdated", this.elementUpdateListener);
   }
 
   setupElementDeleteEventDelegation() {
@@ -1167,10 +1150,8 @@ export class BuilderCanvas extends HTMLElement {
     });
 
     if (elementUpdated) {
+      // store.setState triggers handleStateChange which calls render()
       store.setState({ ...state, rows: updatedRows });
-      
-      // Re-render the entire canvas to reflect all changes
-      this.render();
     }
   }
 
