@@ -55,8 +55,8 @@ export class BuilderSidebar extends HTMLElement {
     eventBus.off("elementDeselected", this.elementDeselectedHandler);
 
     // Create handlers
-    this.rowSelectedHandler = (e) => {
-      this.selectedRow = e.detail.row;
+    this.rowSelectedHandler = (data) => {
+      this.selectedRow = data.row;
       this.showingRowEditor = true;
       this.showingEditor = false;
       this.selectedElement = null;

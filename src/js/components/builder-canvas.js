@@ -744,6 +744,7 @@ export class BuilderCanvas extends HTMLElement {
     eventBus.on("rowDuplicated", (data) => this.handleRowDuplicate({ detail: data }));
     eventBus.on("rowAdded", (data) => this.handleRowAdd({ detail: data }));
     eventBus.on("rowDragStart", (data) => this.handleRowDragStart({ detail: data }));
+    eventBus.on("rowEditRequested", (data) => this.selectRow(data.rowId));
 
     // Mantener solo la suscripción al store
     this.unsubscribeStore = store.subscribe((newState, prevState) => {
@@ -1571,7 +1572,7 @@ export class BuilderCanvas extends HTMLElement {
       image: {
         tag: "img",
         attributes: {
-          src: "/api/placeholder/400/300",
+          src: "https://picsum.photos/400/300",
           alt: this.i18n.t("builder.editor.elements.image.alt"),
         },
         styles: {

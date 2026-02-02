@@ -24,6 +24,15 @@ class RowControls extends HTMLElement {
   }
 
   setupEventListeners() {
+    // Edit button
+    const editBtn = this.shadowRoot.querySelector(".edit-btn");
+    if (editBtn) {
+      editBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        eventBus.emit("rowEditRequested", { rowId: this.getAttribute("row-id") });
+      });
+    }
+
     // Delete button
     const deleteBtn = this.shadowRoot.querySelector(".delete-btn");
     if (deleteBtn) {
@@ -153,6 +162,17 @@ class RowControls extends HTMLElement {
           color: white;
         }
 
+        .edit-btn {
+          top: -12px;
+          right: -12px;
+        }
+
+        .edit-btn:hover {
+          background: #2196F3;
+          border-color: #2196F3;
+          color: white;
+        }
+
         .duplicate-btn {
           right: -12px;
           top: 50%;
@@ -171,6 +191,9 @@ class RowControls extends HTMLElement {
         <div class="row-container">
           <button class="drag-handle" title="Arrastrar">
             <builder-icon name="move" size="14"></builder-icon>
+          </button>
+          <button class="edit-btn" title="Editar fila">
+            <builder-icon name="edit" size="14"></builder-icon>
           </button>
           <button class="delete-btn" title="Eliminar fila">
             <builder-icon name="delete" size="14"></builder-icon>

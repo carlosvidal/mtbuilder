@@ -250,7 +250,7 @@ class CanvasViewSwitcher extends HTMLElement {
           const state = store.getState();
           const content =
             this.currentView === "html"
-              ? ExportUtils.generateHTML(state)
+              ? ExportUtils.generateExportableHTML(state)
               : JSON.stringify(state, null, 2);
 
           navigator.clipboard.writeText(content).then(() => {
@@ -264,7 +264,7 @@ class CanvasViewSwitcher extends HTMLElement {
       if (downloadButton && this.currentView === "html") {
         downloadButton.addEventListener("click", () => {
           const state = store.getState();
-          const html = ExportUtils.generateHTML(state);
+          const html = ExportUtils.generateExportableHTML(state);
           ExportUtils.downloadHTML(html);
           this.showNotification(
             this.i18n.t("builder.canvas.confirmations.downloadStart")
@@ -319,7 +319,7 @@ class CanvasViewSwitcher extends HTMLElement {
   updateHtmlView(data) {
     const htmlContent = this.shadowRoot.querySelector(".html-content");
     if (htmlContent) {
-      htmlContent.textContent = ExportUtils.formatHTML(ExportUtils.generateHTML(data));
+      htmlContent.textContent = ExportUtils.formatHTML(ExportUtils.generateExportableHTML(data));
     }
   }
 
