@@ -86,6 +86,25 @@ export class ExportUtils {
     const styles = this.generateStyleString(element.styles || {});
 
     switch (element.type) {
+      case "row": {
+        const nestedColumns = element.columns || [];
+        const nestedRowStyle = [
+          "display: flex",
+          "flex-wrap: wrap",
+          styles,
+        ].filter(Boolean).join("; ");
+
+        const nestedColumnsHTML = nestedColumns.map((col) => {
+          const colStyle = "flex: 1; min-width: 0; padding: 10px";
+          const elements = (col.elements || [])
+            .map((el) => this._renderElement(el))
+            .join("\n");
+          return `<div style="${colStyle}">${elements}</div>`;
+        }).join("\n");
+
+        return `<div style="${nestedRowStyle}">${nestedColumnsHTML}</div>`;
+      }
+
       case "text":
         return `<div style="${styles}">${element.content || ""}</div>`;
 

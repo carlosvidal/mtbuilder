@@ -44,6 +44,11 @@ class ElementEditor extends HTMLElement {
         this.currentElement.type
       );
 
+      if (!this.currentEditor) {
+        // No editor for this element type (e.g., nested rows)
+        return;
+      }
+
       this.currentEditor.setElement(this.currentElement);
 
       this.shadowRoot.appendChild(this.currentEditor);

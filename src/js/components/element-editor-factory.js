@@ -35,6 +35,8 @@ export class ElementEditorFactory {
         return new VideoEditor();
       case "spacer":
         return new SpacerEditor();
+      case "row":
+        return null;
       default:
         throw new Error(`No editor available for element type: ${elementType}`);
     }

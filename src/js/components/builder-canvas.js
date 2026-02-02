@@ -457,6 +457,26 @@ export class BuilderCanvas extends HTMLElement {
   outline-offset: -1px;
 }
 
+.nested-row-element {
+  position: relative;
+  margin: 0.25rem 0;
+}
+
+.nested-row {
+  border: 1px dashed #e0e0e0;
+  border-radius: 4px;
+  padding: 0.5rem;
+  background: rgba(33, 150, 243, 0.02);
+}
+
+.nested-row:hover {
+  border-color: #ccc;
+}
+
+.nested-column .column-dropzone {
+  min-height: 40px;
+}
+
     .empty-column {
       height: 100%;
       min-height: 100px;
@@ -851,16 +871,35 @@ export class BuilderCanvas extends HTMLElement {
       e.stopImmediatePropagation();
 
       canvas.classList.remove("dragover");
+      // Remove dragover from all column-dropzones
+      this.shadowRoot.querySelectorAll(".column-dropzone.dragover").forEach(
+        (el) => el.classList.remove("dragover")
+      );
 
       const rowType = e.dataTransfer.getData("text/plain");
       const elementType = e.dataTransfer.getData(
         "application/x-builder-element"
       );
 
-      if (rowType?.startsWith("row-")) {
+      // Check if drop target is inside a column-dropzone
+      const dropTarget = e.target.closest(".column-dropzone");
+
+      if (rowType?.startsWith("row-") && dropTarget) {
+        // Nested row drop: row dragged onto a column
+        const rowEl = dropTarget.closest(".builder-row");
+        const columnEl = dropTarget.closest(".builder-column");
+        if (rowEl && columnEl) {
+          // Enforce 1-level nesting: block if already inside a nested row
+          const isNestedColumn = dropTarget.closest(".nested-row-element");
+          if (!isNestedColumn) {
+            this.addNestedRowToColumn(rowEl.dataset.id, columnEl.dataset.id, rowType);
+          }
+        }
+      } else if (rowType?.startsWith("row-")) {
+        // Top-level row drop on canvas
         this.addRow(rowType);
-      } else if (elementType) {
-        const dropTarget = e.target.closest(".column-dropzone");
+      } else if (elementType && !elementType.startsWith("row-")) {
+        // Regular element drop on column
         if (dropTarget) {
           const rowEl = dropTarget.closest(".builder-row");
           const columnEl = dropTarget.closest(".builder-column");
@@ -1120,49 +1159,65 @@ export class BuilderCanvas extends HTMLElement {
     });
   }
 
-  // En builder-canvas.js
   updateElementStyles(elementId, data) {
     const state = store.getState();
     let elementUpdated = false;
 
-    const updatedRows = state.rows.map(row => {
-      const updatedColumns = row.columns.map(column => {
-        const elementIndex = column.elements.findIndex(el => el.id === elementId);
-        if (elementIndex !== -1) {
-          const updatedElements = [...column.elements];
-          const currentElement = updatedElements[elementIndex];
-          
-          // Update element with all provided data
-          updatedElements[elementIndex] = {
-            ...currentElement,
-            ...(data.styles && { styles: { ...currentElement.styles, ...data.styles } }),
-            ...(data.attributes && { attributes: { ...currentElement.attributes, ...data.attributes } }),
-            ...(data.content !== undefined && { content: data.content }),
-            ...(data.tag !== undefined && { tag: data.tag })
-          };
-          
+    const updateInElements = (elements) => {
+      return elements.map(el => {
+        if (el.id === elementId) {
           elementUpdated = true;
-          return { ...column, elements: updatedElements };
+          return {
+            ...el,
+            ...(data.styles && { styles: { ...el.styles, ...data.styles } }),
+            ...(data.attributes && { attributes: { ...el.attributes, ...data.attributes } }),
+            ...(data.content !== undefined && { content: data.content }),
+            ...(data.tag !== undefined && { tag: data.tag }),
+          };
         }
-        return column;
+        if (el.type === "row" && el.columns) {
+          return { ...el, columns: el.columns.map(col => ({
+            ...col,
+            elements: updateInElements(col.elements || []),
+          }))};
+        }
+        return el;
       });
-      return { ...row, columns: updatedColumns };
-    });
+    };
+
+    const updatedRows = state.rows.map(row => ({
+      ...row,
+      columns: row.columns.map(column => ({
+        ...column,
+        elements: updateInElements(column.elements || []),
+      })),
+    }));
 
     if (elementUpdated) {
-      // store.setState triggers handleStateChange which calls render()
       store.setState({ ...state, rows: updatedRows });
     }
   }
 
   findElementById(id) {
     const state = store.getState();
+
+    const searchInElements = (elements) => {
+      for (const el of elements) {
+        if (el.id === id) return el;
+        if (el.type === "row" && el.columns) {
+          for (const col of el.columns) {
+            const found = searchInElements(col.elements || []);
+            if (found) return found;
+          }
+        }
+      }
+      return null;
+    };
+
     for (const row of state.rows) {
       for (const column of row.columns) {
-        const element = column.elements.find((el) => el.id === id);
-        if (element) {
-          return element;
-        }
+        const found = searchInElements(column.elements || []);
+        if (found) return found;
       }
     }
     return null;
@@ -1244,9 +1299,12 @@ export class BuilderCanvas extends HTMLElement {
     const columns = this.shadowRoot.querySelectorAll(".column-dropzone");
     columns.forEach((column) => {
       column.addEventListener("dragover", (e) => {
-        if (!this.draggedElement) return;
         e.preventDefault();
         e.stopPropagation();
+        column.classList.add("dragover");
+
+        // Only do reorder logic if dragging an existing element
+        if (!this.draggedElement) return;
 
         const elements = [...column.children].filter(
           (el) =>
@@ -1285,7 +1343,12 @@ export class BuilderCanvas extends HTMLElement {
         }
       });
 
+      column.addEventListener("dragleave", () => {
+        column.classList.remove("dragover");
+      });
+
       column.addEventListener("drop", (e) => {
+        column.classList.remove("dragover");
         if (!this.draggedElement) return;
         e.preventDefault();
         e.stopPropagation();
@@ -1348,25 +1411,64 @@ export class BuilderCanvas extends HTMLElement {
 
   addElementToColumn(rowId, columnId, elementType) {
     if (!rowId || !columnId || !elementType) {
-      console.warn("Missing required parameters:", {
-        rowId,
-        columnId,
-        elementType,
-      });
       return;
     }
 
     const state = store.getState();
 
-    // Configure new element
     const elementConfig = {
       id: `element-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       type: elementType,
       ...this.getDefaultContent(elementType),
     };
 
+    const addToColumns = (columns) => {
+      return columns.map((column) => {
+        if (column.id === columnId) {
+          return { ...column, elements: [...(column.elements || []), elementConfig] };
+        }
+        // Search inside nested row elements
+        return {
+          ...column,
+          elements: (column.elements || []).map((el) => {
+            if (el.type === "row" && el.columns) {
+              return { ...el, columns: addToColumns(el.columns) };
+            }
+            return el;
+          }),
+        };
+      });
+    };
 
-    // Update rows in state
+    const updatedRows = state.rows.map((row) => {
+      if (row.id === rowId) {
+        return { ...row, columns: addToColumns(row.columns) };
+      }
+      return row;
+    });
+
+    store.setState({ ...state, rows: updatedRows, selectedElement: null });
+  }
+
+  addNestedRowToColumn(rowId, columnId, rowType) {
+    const numColumns = parseInt(rowType.split("-")[1], 10);
+    const timestamp = Date.now();
+    const rand = () => Math.random().toString(36).slice(2, 9);
+
+    const nestedRowElement = {
+      id: `element-${timestamp}-${rand()}`,
+      type: "row",
+      tag: "div",
+      content: "",
+      columns: Array.from({ length: numColumns }, (_, index) => ({
+        id: `nested-col-${timestamp}-${index}-${rand()}`,
+        elements: [],
+      })),
+      styles: {},
+      attributes: { columnCount: numColumns },
+    };
+
+    const state = store.getState();
     const updatedRows = state.rows.map((row) => {
       if (row.id === rowId) {
         return {
@@ -1375,7 +1477,7 @@ export class BuilderCanvas extends HTMLElement {
             if (column.id === columnId) {
               return {
                 ...column,
-                elements: [...(column.elements || []), elementConfig],
+                elements: [...(column.elements || []), nestedRowElement],
               };
             }
             return column;
@@ -1385,13 +1487,7 @@ export class BuilderCanvas extends HTMLElement {
       return row;
     });
 
-
-    // Update store with new rows
-    store.setState({
-      ...state,
-      rows: updatedRows,
-      selectedElement: null, // Clear any selected element
-    });
+    store.setState({ ...state, rows: updatedRows });
   }
 
   getDefaultContent(type) {
@@ -1578,6 +1674,32 @@ export class BuilderCanvas extends HTMLElement {
 
     // Mantener el switch para casos especiales
     switch (element.type) {
+      case "row": {
+        const nestedColumns = element.columns || [];
+        return `
+          <div class="builder-element-wrapper nested-row-element">
+            ${elementControls}
+            <div class="builder-element nested-row"
+                 data-id="${element.id}"
+                 data-type="row"
+                 style="${styleString}">
+              <div class="row-inner" style="display: grid; grid-template-columns: repeat(${nestedColumns.length}, 1fr); gap: 20px;">
+                ${nestedColumns.map(col => `
+                  <div class="builder-column nested-column" data-id="${col.id}" data-parent-element="${element.id}">
+                    <div class="column-dropzone">
+                      ${col.elements.length === 0
+                        ? `<div class="empty-column"><span>${this.i18n.t("builder.sidebar.dropHint")}</span></div>`
+                        : col.elements.map(el => this.renderElement(el)).join("")
+                      }
+                    </div>
+                  </div>
+                `).join("")}
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
       case "table":
         return `
           <div class="builder-element-wrapper">
@@ -1646,21 +1768,33 @@ export class BuilderCanvas extends HTMLElement {
     const state = store.getState();
     let elementDeleted = false;
 
-    const updatedRows = state.rows.map(row => {
-      const updatedColumns = row.columns.map(column => {
-        const elementIndex = column.elements.findIndex(
-          (el) => el.id === elementId
-        );
-        if (elementIndex !== -1) {
-          const updatedElements = [...column.elements];
-          updatedElements.splice(elementIndex, 1);
-          elementDeleted = true;
-          return { ...column, elements: updatedElements };
+    const deleteFromElements = (elements) => {
+      const idx = elements.findIndex(el => el.id === elementId);
+      if (idx !== -1) {
+        elementDeleted = true;
+        return [...elements.slice(0, idx), ...elements.slice(idx + 1)];
+      }
+      return elements.map(el => {
+        if (el.type === "row" && el.columns) {
+          return {
+            ...el,
+            columns: el.columns.map(col => ({
+              ...col,
+              elements: deleteFromElements(col.elements || []),
+            })),
+          };
         }
-        return column;
+        return el;
       });
-      return { ...row, columns: updatedColumns };
-    });
+    };
+
+    const updatedRows = state.rows.map(row => ({
+      ...row,
+      columns: row.columns.map(column => ({
+        ...column,
+        elements: deleteFromElements(column.elements || []),
+      })),
+    }));
 
     if (elementDeleted) {
       store.setState({ ...state, rows: updatedRows });
@@ -1686,16 +1820,25 @@ export class BuilderCanvas extends HTMLElement {
 
       if (savedData) {
         if (Array.isArray(savedData.rows)) {
-          // Procesar las filas asegurando que los estilos estén presentes
+          const restoreElements = (elements) => {
+            return (elements || []).map((element) => {
+              const restored = { ...element, styles: element.styles || {} };
+              if (element.type === "row" && element.columns) {
+                restored.columns = element.columns.map((col) => ({
+                  ...col,
+                  elements: restoreElements(col.elements),
+                }));
+              }
+              return restored;
+            });
+          };
+
           initialState.rows = savedData.rows.map((row) => ({
             ...row,
             styles: row.styles || {},
             columns: row.columns.map((column) => ({
               ...column,
-              elements: column.elements.map((element) => ({
-                ...element,
-                styles: element.styles || {},
-              })),
+              elements: restoreElements(column.elements),
             })),
           }));
         }
@@ -1831,18 +1974,31 @@ export class BuilderCanvas extends HTMLElement {
 
     if (!sourceRow) return;
 
-    // Create deep copy with new IDs
+    const rand = () => Math.random().toString(36).slice(2, 11);
+
+    const deepCopyElements = (elements) => {
+      return (elements || []).map((element) => {
+        const copied = {
+          ...element,
+          id: `element-${Date.now()}-${rand()}`,
+        };
+        if (element.type === "row" && element.columns) {
+          copied.columns = element.columns.map((col) => ({
+            ...col,
+            id: `nested-col-${Date.now()}-${rand()}`,
+            elements: deepCopyElements(col.elements),
+          }));
+        }
+        return copied;
+      });
+    };
+
     const newRow = {
       ...sourceRow,
-      id: `row-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+      id: `row-${Date.now()}-${rand()}`,
       columns: sourceRow.columns.map((col) => ({
-        id: `column-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
-        elements: col.elements.map((element) => ({
-          ...element,
-          id: `element-${Date.now()}-${Math.random()
-            .toString(36)
-            .slice(2, 11)}`,
-        })),
+        id: `column-${Date.now()}-${rand()}`,
+        elements: deepCopyElements(col.elements),
       })),
     };
 
@@ -1986,6 +2142,27 @@ export class BuilderCanvas extends HTMLElement {
   // Método para obtener los datos del editor
   getEditorData() {
     const state = store.getState();
+
+    const serializeElements = (elements) => {
+      return (elements || []).map((element) => {
+        const base = {
+          id: element.id,
+          type: element.type,
+          tag: element.tag,
+          content: element.content,
+          styles: element.styles || {},
+          attributes: element.attributes || {},
+        };
+        if (element.type === "row" && element.columns) {
+          base.columns = element.columns.map((col) => ({
+            id: col.id,
+            elements: serializeElements(col.elements),
+          }));
+        }
+        return base;
+      });
+    };
+
     return {
       globalSettings: state.globalSettings || {},
       rows: (state.rows || []).map((row) => ({
@@ -1994,14 +2171,7 @@ export class BuilderCanvas extends HTMLElement {
         styles: row.styles || {},
         columns: (row.columns || []).map((column) => ({
           id: column.id,
-          elements: (column.elements || []).map((element) => ({
-            id: element.id,
-            type: element.type,
-            tag: element.tag,
-            content: element.content,
-            styles: element.styles || {},
-            attributes: element.attributes || {},
-          })),
+          elements: serializeElements(column.elements),
         })),
       })),
     };

@@ -359,6 +359,7 @@ export class BuilderSidebar extends HTMLElement {
 
         if (element.dataset.type.startsWith("row-")) {
           e.dataTransfer.setData("text/plain", element.dataset.type);
+          e.dataTransfer.setData("application/x-builder-element", element.dataset.type);
         } else {
           e.dataTransfer.setData(
             "application/x-builder-element",
