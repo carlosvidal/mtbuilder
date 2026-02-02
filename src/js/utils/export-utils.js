@@ -96,8 +96,15 @@ export class ExportUtils {
       .join("\n");
   }
 
+  static _wrapWithContainer(html, wrapperStyles) {
+    if (!wrapperStyles || Object.keys(wrapperStyles).length === 0) return html;
+    const ws = this.generateStyleString({ display: "flex", ...wrapperStyles });
+    return `<div style="${ws}">${html}</div>`;
+  }
+
   static _renderElement(element) {
     const styles = this.generateStyleString(element.styles || {});
+    let html;
 
     switch (element.type) {
       case "row": {
@@ -126,12 +133,23 @@ export class ExportUtils {
         return `<div${cssClass ? ` class="${cssClass}"` : ""} style="${nestedRowStyle}">${nestedColumnsHTML}</div>`;
       }
 
+      case "container": {
+        const containerStyle = styles || "display: flex; flex-direction: column";
+        const children = (element.elements || [])
+          .map((el) => this._renderElement(el))
+          .join("\n");
+        html = `<div style="${containerStyle}">${children}</div>`;
+        break;
+      }
+
       case "text":
-        return `<div style="${styles}">${element.content || ""}</div>`;
+        html = `<div style="${styles}">${element.content || ""}</div>`;
+        break;
 
       case "heading": {
         const tag = element.tag || "h2";
-        return `<${tag} style="${styles}">${element.content || ""}</${tag}>`;
+        html = `<${tag} style="${styles}">${element.content || ""}</${tag}>`;
+        break;
       }
 
       case "image": {
@@ -139,7 +157,8 @@ export class ExportUtils {
         const imgStyle = styles
           ? `max-width: 100%; height: auto; ${styles}`
           : "max-width: 100%; height: auto";
-        return `<img ${attrs} style="${imgStyle}">`;
+        html = `<img ${attrs} style="${imgStyle}">`;
+        break;
       }
 
       case "button": {
@@ -153,13 +172,15 @@ export class ExportUtils {
         ]
           .filter(Boolean)
           .join("; ");
-        return `<a href="${href}" target="${target}" style="${btnStyle}">${element.content || ""}</a>`;
+        html = `<a href="${href}" target="${target}" style="${btnStyle}">${element.content || ""}</a>`;
+        break;
       }
 
       case "link": {
         const href = element.attributes?.href || "#";
         const target = element.attributes?.target || "_blank";
-        return `<a href="${href}" target="${target}" style="${styles}">${element.content || ""}</a>`;
+        html = `<a href="${href}" target="${target}" style="${styles}">${element.content || ""}</a>`;
+        break;
       }
 
       case "video": {
@@ -175,14 +196,17 @@ export class ExportUtils {
           .join("; ");
         const iframeStyle =
           "position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0";
-        return `<div style="${containerStyle}"><iframe src="${src}" style="${iframeStyle}" allowfullscreen></iframe></div>`;
+        html = `<div style="${containerStyle}"><iframe src="${src}" style="${iframeStyle}" allowfullscreen></iframe></div>`;
+        break;
       }
 
       case "divider":
-        return `<hr style="${styles}">`;
+        html = `<hr style="${styles}">`;
+        break;
 
       case "spacer":
-        return `<div style="${styles}"></div>`;
+        html = `<div style="${styles}"></div>`;
+        break;
 
       case "list": {
         const tag = element.tag || "ul";
@@ -190,18 +214,24 @@ export class ExportUtils {
           .split("\n")
           .map((item) => `<li>${item.trim()}</li>`)
           .join("");
-        return `<${tag} style="${styles}">${items}</${tag}>`;
+        html = `<${tag} style="${styles}">${items}</${tag}>`;
+        break;
       }
 
       case "table":
-        return `<div style="overflow-x: auto;"><table style="${styles}">${element.content || ""}</table></div>`;
+        html = `<div style="overflow-x: auto;"><table style="${styles}">${element.content || ""}</table></div>`;
+        break;
 
       case "html":
-        return sanitizeHTML(element.content) || "";
+        html = sanitizeHTML(element.content) || "";
+        break;
 
       default:
-        return `<div style="${styles}">${element.content || ""}</div>`;
+        html = `<div style="${styles}">${element.content || ""}</div>`;
+        break;
     }
+
+    return this._wrapWithContainer(html, element.wrapperStyles);
   }
 
   static _renderAttributes(attributes) {
@@ -216,10 +246,10 @@ export class ExportUtils {
         const cssKey = key.replace(/([A-Z])/g, "-$1").toLowerCase();
         if (
           typeof value === "number" &&
-          (cssKey.includes("width") ||
-            cssKey.includes("height") ||
-            cssKey.includes("margin") ||
-            cssKey.includes("padding"))
+          value !== 0 &&
+          !cssKey.includes("opacity") &&
+          !cssKey.includes("flex") &&
+          cssKey !== "font-weight"
         ) {
           value = `${value}px`;
         }

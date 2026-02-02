@@ -9,6 +9,7 @@ import { TableEditor } from "./editors/table-editor.js";
 import { ListEditor } from "./editors/list-editor.js";
 import { VideoEditor } from "./editors/video-editor.js";
 import { SpacerEditor } from "./editors/spacer-editor.js";
+import { ContainerEditor } from "./editors/container-editor.js";
 
 export class ElementEditorFactory {
   static createEditor(elementType) {
@@ -35,6 +36,8 @@ export class ElementEditorFactory {
         return new VideoEditor();
       case "spacer":
         return new SpacerEditor();
+      case "container":
+        return new ContainerEditor();
       case "row":
         return null;
       default:

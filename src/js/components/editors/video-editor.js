@@ -47,6 +47,7 @@ export class VideoEditor extends BaseElementEditor {
               ${this.currentElement.attributes?.autoplay ? "checked" : ""}>
           </div>
         </div>
+        ${this.renderWrapperEditor()}
         ${this.renderSpacingEditor()}
         ${this.renderBorderEditor()}
       </div>

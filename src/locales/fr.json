@@ -17,7 +17,8 @@
                 "video": "Vidéo",
                 "divider": "Séparateur",
                 "spacer": "Espace",
-                "html": "HTML"
+                "html": "HTML",
+                "container": "Conteneur"
             },
             "rows": {
                 "columns": "Colonnes",
@@ -138,6 +139,17 @@
                 "html": {
                     "title": "HTML Personnalisé",
                     "code": "Code HTML"
+                },
+                "container": {
+                    "title": "Modifier le conteneur",
+                    "direction": "Direction",
+                    "vertical": "Vertical",
+                    "horizontal": "Horizontal",
+                    "justifyContent": "Justify content",
+                    "alignItems": "Align items",
+                    "gap": "Gap",
+                    "minHeight": "Hauteur minimale",
+                    "placeholder": "Déposez les éléments ici"
                 }
             }
         },

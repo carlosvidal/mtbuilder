@@ -70,7 +70,13 @@ export class BaseElementEditor extends HTMLElement {
   }
 
   updateElementProperty(property, value) {
-    if (property === "tag") {
+    if (property.startsWith("wrapper.")) {
+      const wrapperProp = property.slice(8);
+      this.currentElement.wrapperStyles = {
+        ...this.currentElement.wrapperStyles,
+        [wrapperProp]: value,
+      };
+    } else if (property === "tag") {
       this.currentElement.tag = value;
     } else if (["src", "alt", "href", "target", "type", "aspectRatio", "controls", "autoplay"].includes(property)) {
       this.currentElement.attributes = {
@@ -94,7 +100,58 @@ export class BaseElementEditor extends HTMLElement {
       attributes: this.currentElement.attributes,
       content: this.currentElement.content,
       tag: this.currentElement.tag,
+      wrapperStyles: this.currentElement.wrapperStyles,
     });
+  }
+
+  // Wrapper style properties
+  static WRAPPER_PROPERTIES = ["justifyContent", "alignItems", "wrapperBorderRadius", "overflow"];
+
+  renderWrapperEditor() {
+    const ws = this.currentElement.wrapperStyles || {};
+    return `
+        <div class="editor-section">
+          <h3>Contenedor</h3>
+          <div class="form-group">
+            <label>Alineación horizontal</label>
+            <select data-property="wrapper.justifyContent">
+              ${["flex-start", "center", "flex-end", "stretch"]
+                .map(
+                  (v) => `<option value="${v}" ${
+                    (ws.justifyContent || "flex-start") === v ? "selected" : ""
+                  }>${v === "flex-start" ? "Izquierda" : v === "center" ? "Centro" : v === "flex-end" ? "Derecha" : "Expandir"}</option>`
+                )
+                .join("")}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Alineación vertical</label>
+            <select data-property="wrapper.alignItems">
+              ${["flex-start", "center", "flex-end", "stretch"]
+                .map(
+                  (v) => `<option value="${v}" ${
+                    (ws.alignItems || "stretch") === v ? "selected" : ""
+                  }>${v === "flex-start" ? "Arriba" : v === "center" ? "Centro" : v === "flex-end" ? "Abajo" : "Expandir"}</option>`
+                )
+                .join("")}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Border radius (px)</label>
+            <input type="number"
+              data-property="wrapper.borderRadius"
+              value="${parseInt(ws.borderRadius) || 0}"
+              min="0">
+          </div>
+          <div class="form-group">
+            <label>Overflow</label>
+            <select data-property="wrapper.overflow">
+              <option value="visible" ${(ws.overflow || "visible") === "visible" ? "selected" : ""}>Visible</option>
+              <option value="hidden" ${ws.overflow === "hidden" ? "selected" : ""}>Oculto</option>
+            </select>
+          </div>
+        </div>
+      `;
   }
 
   // Métodos comunes para renderizar secciones de editor

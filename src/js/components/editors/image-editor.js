@@ -42,6 +42,7 @@ export class ImageEditor extends BaseElementEditor {
               </select>
             </div>
           </div>
+          ${this.renderWrapperEditor()}
           ${this.renderSpacingEditor()}
           ${this.renderBorderEditor()}
         </div>

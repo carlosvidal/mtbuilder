@@ -35,6 +35,7 @@ export class BuilderSidebar extends HTMLElement {
       { type: "divider" },
       { type: "spacer" },
       { type: "html" },
+      { type: "container" },
     ];
 
     // Subscribe to store changes

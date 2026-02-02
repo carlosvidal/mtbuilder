@@ -220,6 +220,13 @@ class BuilderIcon extends HTMLElement {
           { type: "path", d: "M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" },
         ],
       },
+      container: {
+        viewBox: "0 0 24 24",
+        elements: [
+          { type: "rect", width: "18", height: "18", x: "3", y: "3", rx: "2", "stroke-dasharray": "4 2" },
+          { type: "rect", width: "8", height: "4", x: "8", y: "10", rx: "1" },
+        ],
+      },
       minus: {
         viewBox: "0 0 24 24",
         elements: [{ type: "line", x1: "5", y1: "12", x2: "19", y2: "12" }],

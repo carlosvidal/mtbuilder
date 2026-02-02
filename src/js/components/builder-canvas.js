@@ -481,6 +481,32 @@ export class BuilderCanvas extends HTMLElement {
   pointer-events: none;
 }
 
+.container-element {
+  border: 1px dashed #e0e0e0;
+  border-radius: 4px;
+  min-height: 80px;
+  position: relative;
+}
+
+.container-element:hover {
+  border-color: #2196F3;
+}
+
+.container-element.drag-over {
+  border-color: #2196F3;
+  background: rgba(33, 150, 243, 0.05);
+}
+
+.container-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 60px;
+  color: #999;
+  font-size: 0.8rem;
+}
+
     .empty-column {
       height: 100%;
       min-height: 100px;
@@ -880,9 +906,12 @@ export class BuilderCanvas extends HTMLElement {
       e.stopImmediatePropagation();
 
       canvas.classList.remove("dragover");
-      // Remove dragover from all column-dropzones
+      // Remove dragover from all column-dropzones and containers
       this.shadowRoot.querySelectorAll(".column-dropzone.dragover").forEach(
         (el) => el.classList.remove("dragover")
+      );
+      this.shadowRoot.querySelectorAll(".container-element.drag-over").forEach(
+        (el) => el.classList.remove("drag-over")
       );
 
       const rowType = e.dataTransfer.getData("text/plain");
@@ -917,8 +946,11 @@ export class BuilderCanvas extends HTMLElement {
         // Top-level row drop on canvas
         this.addRow(rowType, responsiveConfig);
       } else if (elementType && !elementType.startsWith("row-")) {
-        // Regular element drop on column
-        if (dropTarget) {
+        // Check if drop target is a container element
+        const containerTarget = e.target.closest(".container-element");
+        if (containerTarget && dropTarget) {
+          this.addElementToContainer(containerTarget.dataset.id, elementType);
+        } else if (dropTarget) {
           const rowEl = dropTarget.closest(".builder-row");
           const columnEl = dropTarget.closest(".builder-column");
           if (rowEl && columnEl) {
@@ -938,11 +970,24 @@ export class BuilderCanvas extends HTMLElement {
         e.preventDefault();
         e.stopPropagation();
         canvas.classList.add("dragover");
+
+        // Highlight container drop targets
+        const containerTarget = e.target.closest(".container-element");
+        this.shadowRoot.querySelectorAll(".container-element.drag-over").forEach(
+          (el) => el.classList.remove("drag-over")
+        );
+        if (containerTarget) {
+          containerTarget.classList.add("drag-over");
+        }
       }
     };
 
-    this._dragLeaveHandler = () => {
+    this._dragLeaveHandler = (e) => {
       canvas.classList.remove("dragover");
+      const containerTarget = e.target.closest(".container-element");
+      if (containerTarget) {
+        containerTarget.classList.remove("drag-over");
+      }
     };
 
     // Añadir event listeners
@@ -1191,6 +1236,7 @@ export class BuilderCanvas extends HTMLElement {
             ...(data.attributes && { attributes: { ...el.attributes, ...data.attributes } }),
             ...(data.content !== undefined && { content: data.content }),
             ...(data.tag !== undefined && { tag: data.tag }),
+            ...(data.wrapperStyles !== undefined && { wrapperStyles: data.wrapperStyles }),
           };
         }
         if (el.type === "row" && el.columns) {
@@ -1198,6 +1244,9 @@ export class BuilderCanvas extends HTMLElement {
             ...col,
             elements: updateInElements(col.elements || []),
           }))};
+        }
+        if (el.type === "container" && el.elements) {
+          return { ...el, elements: updateInElements(el.elements) };
         }
         return el;
       });
@@ -1227,6 +1276,10 @@ export class BuilderCanvas extends HTMLElement {
             const found = searchInElements(col.elements || []);
             if (found) return found;
           }
+        }
+        if (el.type === "container" && el.elements) {
+          const found = searchInElements(el.elements);
+          if (found) return found;
         }
       }
       return null;
@@ -1472,6 +1525,45 @@ export class BuilderCanvas extends HTMLElement {
     store.setState({ ...state, rows: updatedRows, selectedElement: null });
   }
 
+  addElementToContainer(containerId, elementType) {
+    if (!containerId || !elementType) return;
+
+    const state = store.getState();
+    const elementConfig = {
+      id: `element-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      type: elementType,
+      ...this.getDefaultContent(elementType),
+    };
+
+    const addToContainer = (elements) => {
+      return elements.map((el) => {
+        if (el.id === containerId && el.type === "container") {
+          return { ...el, elements: [...(el.elements || []), elementConfig] };
+        }
+        if (el.type === "row" && el.columns) {
+          return { ...el, columns: el.columns.map((col) => ({
+            ...col,
+            elements: addToContainer(col.elements || []),
+          }))};
+        }
+        if (el.type === "container" && el.elements) {
+          return { ...el, elements: addToContainer(el.elements) };
+        }
+        return el;
+      });
+    };
+
+    const updatedRows = state.rows.map((row) => ({
+      ...row,
+      columns: row.columns.map((column) => ({
+        ...column,
+        elements: addToContainer(column.elements || []),
+      })),
+    }));
+
+    store.setState({ ...state, rows: updatedRows, selectedElement: null });
+  }
+
   addNestedRowToColumn(rowId, columnId, rowType, responsiveConfig) {
     const numColumns = parseInt(rowType.split("-")[1], 10);
     const timestamp = Date.now();
@@ -1664,6 +1756,21 @@ export class BuilderCanvas extends HTMLElement {
           background: "#f5f5f5",
         },
       },
+      container: {
+        tag: "div",
+        content: "",
+        elements: [],
+        styles: {
+          display: "flex",
+          flexDirection: "column",
+          gap: "10px",
+          padding: "20px",
+          minHeight: "80px",
+          borderRadius: "0",
+          overflow: "visible",
+          backgroundColor: "transparent",
+        },
+      },
     };
 
     return (
@@ -1682,6 +1789,9 @@ export class BuilderCanvas extends HTMLElement {
     const styleString = Object.entries(element.styles || {})
       .map(([key, value]) => {
         const cssKey = key.replace(/([A-Z])/g, "-$1").toLowerCase();
+        if (typeof value === "number" && value !== 0 && !cssKey.includes("opacity") && !cssKey.includes("flex") && cssKey !== "font-weight") {
+          value = `${value}px`;
+        }
         return `${cssKey}: ${value}`;
       })
       .join(";");
@@ -1689,6 +1799,21 @@ export class BuilderCanvas extends HTMLElement {
     const attributesString = Object.entries(attributes)
       .map(([key, value]) => `${key}="${value}"`)
       .join(" ");
+
+    // Wrapper styles (display:flex + user-defined wrapper properties)
+    const ws = element.wrapperStyles || {};
+    const hasWrapperStyles = Object.keys(ws).length > 0;
+    const wrapperStyleString = hasWrapperStyles
+      ? Object.entries({ display: "flex", ...ws })
+          .map(([key, value]) => {
+            const cssKey = key.replace(/([A-Z])/g, "-$1").toLowerCase();
+            if (typeof value === "number" && value !== 0 && !cssKey.includes("opacity") && !cssKey.includes("flex")) {
+              value = `${value}px`;
+            }
+            return `${cssKey}: ${value}`;
+          })
+          .join(";")
+      : "";
 
     const elementControls = `
       <div class="element-controls">
@@ -1726,9 +1851,28 @@ export class BuilderCanvas extends HTMLElement {
         `;
       }
 
+      case "container": {
+        const childElements = element.elements || [];
+        const isEmpty = childElements.length === 0;
+        return `
+          <div class="builder-element-wrapper" style="${wrapperStyleString}">
+            ${elementControls}
+            <div class="builder-element container-element"
+                 data-id="${element.id}"
+                 data-type="container"
+                 style="${styleString}">
+              ${isEmpty
+                ? `<div class="container-placeholder"><span>${this.i18n.t("builder.sidebar.dropHint")}</span></div>`
+                : childElements.map(el => this.renderElement(el)).join("")
+              }
+            </div>
+          </div>
+        `;
+      }
+
       case "table":
         return `
-          <div class="builder-element-wrapper">
+          <div class="builder-element-wrapper" style="${wrapperStyleString}">
             ${elementControls}
             <table class="builder-element" style="${styleString}" data-id="${element.id}" data-type="${element.type}">
               ${sanitizeHTML(content)}
@@ -1742,7 +1886,7 @@ export class BuilderCanvas extends HTMLElement {
           .map((item) => `<li>${item.trim()}</li>`)
           .join("");
         return `
-          <div class="builder-element-wrapper">
+          <div class="builder-element-wrapper" style="${wrapperStyleString}">
             ${elementControls}
             <${tag} class="builder-element" style="${styleString}" data-id="${element.id}" data-type="${element.type}">
               ${items}
@@ -1752,7 +1896,7 @@ export class BuilderCanvas extends HTMLElement {
 
       case "video":
         return `
-          <div class="builder-element-wrapper">
+          <div class="builder-element-wrapper" style="${wrapperStyleString}">
             ${elementControls}
             <div class="video-container builder-element" data-id="${element.id}" data-type="${element.type}" style="position: relative; ${styleString}">
               <iframe ${attributesString} style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe>
@@ -1762,7 +1906,7 @@ export class BuilderCanvas extends HTMLElement {
 
       case "spacer":
         return `
-          <div class="builder-element-wrapper">
+          <div class="builder-element-wrapper" style="${wrapperStyleString}">
             ${elementControls}
             <div class="builder-element" style="${styleString}" data-id="${element.id}" data-type="${element.type}"></div>
           </div>
@@ -1770,7 +1914,7 @@ export class BuilderCanvas extends HTMLElement {
 
       case "image":
         return `
-          <div class="builder-element-wrapper">
+          <div class="builder-element-wrapper" style="${wrapperStyleString}">
             ${elementControls}
             <img ${attributesString} style="${styleString}" class="builder-element" data-id="${element.id}" data-type="${element.type}">
           </div>
@@ -1778,7 +1922,7 @@ export class BuilderCanvas extends HTMLElement {
 
       default:
         return `
-          <div class="builder-element-wrapper">
+          <div class="builder-element-wrapper" style="${wrapperStyleString}">
             ${elementControls}
             <${tag} style="${styleString}" class="builder-element" data-id="${
           element.id
@@ -1809,6 +1953,9 @@ export class BuilderCanvas extends HTMLElement {
               elements: deleteFromElements(col.elements || []),
             })),
           };
+        }
+        if (el.type === "container" && el.elements) {
+          return { ...el, elements: deleteFromElements(el.elements) };
         }
         return el;
       });
@@ -1849,6 +1996,9 @@ export class BuilderCanvas extends HTMLElement {
           const restoreElements = (elements) => {
             return (elements || []).map((element) => {
               const restored = { ...element, styles: element.styles || {} };
+              if (element.wrapperStyles) {
+                restored.wrapperStyles = element.wrapperStyles;
+              }
               if (element.type === "row" && element.columns) {
                 restored.columns = element.columns.map((col) => ({
                   ...col,
@@ -1857,6 +2007,9 @@ export class BuilderCanvas extends HTMLElement {
                 if (element.responsive) {
                   restored.responsive = element.responsive;
                 }
+              }
+              if (element.type === "container" && element.elements) {
+                restored.elements = restoreElements(element.elements);
               }
               return restored;
             });
@@ -2188,6 +2341,9 @@ export class BuilderCanvas extends HTMLElement {
           styles: element.styles || {},
           attributes: element.attributes || {},
         };
+        if (element.wrapperStyles && Object.keys(element.wrapperStyles).length > 0) {
+          base.wrapperStyles = element.wrapperStyles;
+        }
         if (element.type === "row" && element.columns) {
           base.columns = element.columns.map((col) => ({
             id: col.id,
@@ -2196,6 +2352,9 @@ export class BuilderCanvas extends HTMLElement {
           if (element.responsive) {
             base.responsive = element.responsive;
           }
+        }
+        if (element.type === "container" && element.elements) {
+          base.elements = serializeElements(element.elements);
         }
         return base;
       });

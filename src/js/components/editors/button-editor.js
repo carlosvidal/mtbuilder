@@ -39,6 +39,7 @@ export class ButtonEditor extends BaseElementEditor {
           </div>
           ${this.renderTextStylesEditor()}
           ${this.renderBackgroundEditor()}
+          ${this.renderWrapperEditor()}
           ${this.renderBorderEditor()}
           ${this.renderSpacingEditor()}
         </div>
