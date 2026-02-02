@@ -319,7 +319,7 @@ class CanvasViewSwitcher extends HTMLElement {
   updateHtmlView(data) {
     const htmlContent = this.shadowRoot.querySelector(".html-content");
     if (htmlContent) {
-      htmlContent.textContent = ExportUtils.generateHTML(data);
+      htmlContent.textContent = ExportUtils.formatHTML(ExportUtils.generateHTML(data));
     }
   }
 
