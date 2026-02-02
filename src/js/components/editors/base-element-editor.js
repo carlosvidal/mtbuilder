@@ -46,7 +46,7 @@ export class BaseElementEditor extends HTMLElement {
   updateElementProperty(property, value) {
     if (property === "tag") {
       this.currentElement.tag = value;
-    } else if (["src", "alt", "href", "type"].includes(property)) {
+    } else if (["src", "alt", "href", "target", "type"].includes(property)) {
       this.currentElement.attributes = {
         ...this.currentElement.attributes,
         [property]: value,

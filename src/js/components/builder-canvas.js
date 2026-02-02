@@ -473,6 +473,7 @@ export class BuilderCanvas extends HTMLElement {
 // Añadir estos estilos en el sidebar
 .builder-element {
   cursor: grab;
+  display: block;
 }
 
 .builder-element[data-type^="row-"] {

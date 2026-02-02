@@ -161,6 +161,85 @@ PUT    /api/pages/{id} — Update page
 DELETE /api/pages/{id} — Delete page
 ```
 
+## Framework Integration
+
+Since MT Builder uses standard Web Components, it works with any framework.
+
+### React
+
+```jsx
+import { useRef, useEffect } from "react";
+import "./dist/page-builder.js";
+
+function PageEditor({ pageId, pageData, onSave }) {
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const builder = ref.current;
+    const handleReady = () => builder.setPageData(pageData);
+    const handleSave = (e) => onSave(e.detail.data);
+
+    builder.addEventListener("builder:ready", handleReady);
+    builder.addEventListener("builder:save", handleSave);
+
+    return () => {
+      builder.removeEventListener("builder:ready", handleReady);
+      builder.removeEventListener("builder:save", handleSave);
+    };
+  }, [pageData, onSave]);
+
+  return <page-builder ref={ref} page-id={pageId} lang="es" />;
+}
+```
+
+### Vue 3
+
+```vue
+<template>
+  <page-builder
+    ref="builder"
+    :page-id="pageId"
+    lang="es"
+    @builder:ready="onReady"
+    @builder:save="onSave"
+  />
+</template>
+
+<script setup>
+import { ref } from "vue";
+import "./dist/page-builder.js";
+
+const props = defineProps(["pageId", "pageData"]);
+const emit = defineEmits(["save"]);
+const builder = ref(null);
+
+function onReady() {
+  builder.value.setPageData(props.pageData);
+}
+
+function onSave(e) {
+  emit("save", e.detail.data);
+}
+</script>
+```
+
+Configure Vue to recognize the custom elements in `vite.config.js`:
+
+```js
+export default defineConfig({
+  plugins: [
+    vue({
+      template: {
+        compilerOptions: {
+          isCustomElement: (tag) =>
+            ["page-builder", "page-manager"].includes(tag),
+        },
+      },
+    }),
+  ],
+});
+```
+
 ## Adding Languages
 
 1. Create `src/locales/{code}.json` following the existing structure
