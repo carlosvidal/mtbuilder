@@ -30,7 +30,6 @@ class RowControls extends HTMLElement {
       deleteBtn.addEventListener("click", (e) => {
         e.stopPropagation();
         if (confirm("Are you sure you want to delete this row?")) {
-          console.log("🗑️ Row Controls - Emitting rowDeleted event");
           eventBus.emit("rowDeleted", { rowId: this.getAttribute("row-id") });
         }
       });
@@ -41,7 +40,6 @@ class RowControls extends HTMLElement {
     if (duplicateBtn) {
       duplicateBtn.addEventListener("click", (e) => {
         e.stopPropagation();
-        console.log("📋 Row Controls - Emitting rowDuplicated event");
         eventBus.emit("rowDuplicated", { rowId: this.getAttribute("row-id") });
       });
     }
@@ -51,7 +49,6 @@ class RowControls extends HTMLElement {
     if (addBtn) {
       addBtn.addEventListener("click", (e) => {
         e.stopPropagation();
-        console.log("➕ Row Controls - Emitting rowAdded event");
         eventBus.emit("rowAdded", { rowId: this.getAttribute("row-id") });
       });
     }

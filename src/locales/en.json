@@ -52,6 +52,7 @@
                 "redo": "Redo",
                 "copy": "Copy",
                 "download": "Download",
+                "save": "Save",
                 "copyHtml": "Copy HTML",
                 "copyJson": "Copy JSON",
                 "downloadHtml": "Download HTML"

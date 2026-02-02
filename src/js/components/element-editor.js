@@ -10,7 +10,6 @@ class ElementEditor extends HTMLElement {
   }
 
   setElement(element) {
-    console.log("Setting element:", element);
     this.currentElement = element;
     this.render();
   }
@@ -36,23 +35,18 @@ class ElementEditor extends HTMLElement {
     }
 
     try {
-      console.log("Creating editor for type:", this.currentElement.type);
 
       if (this.currentEditor) {
-        console.log("Removing previous editor");
         this.shadowRoot.removeChild(this.currentEditor);
       }
 
       this.currentEditor = ElementEditorFactory.createEditor(
         this.currentElement.type
       );
-      console.log("Created editor:", this.currentEditor);
 
       this.currentEditor.setElement(this.currentElement);
-      console.log("Editor element set");
 
       this.shadowRoot.appendChild(this.currentEditor);
-      console.log("Editor appended to shadow root");
     } catch (error) {
       console.error("Error creating editor:", error);
       console.error("Stack trace:", error.stack);

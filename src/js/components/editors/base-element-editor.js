@@ -62,7 +62,6 @@ export class BaseElementEditor extends HTMLElement {
   }
 
   emitUpdateEvent() {
-    console.log("🔧 BaseElementEditor - Emitting elementUpdated event for:", this.currentElement.id);
     eventBus.emit("elementUpdated", {
       elementId: this.currentElement.id,
       styles: this.currentElement.styles,

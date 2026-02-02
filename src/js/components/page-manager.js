@@ -103,22 +103,17 @@ export class PageManager extends HTMLElement {
 
   async loadBuilder(pageId) {
     try {
-      console.log("Loading builder for page:", pageId);
       this.currentPageId = pageId;
       const pageData = this.pages.find((p) => p.id === pageId);
-      console.log("Page data:", pageData);
 
       if (pageData) {
         requestAnimationFrame(() => {
           const builder = this.shadowRoot.querySelector("page-builder");
           if (builder) {
-            const canvas = builder.shadowRoot.querySelector("builder-canvas");
-            if (canvas) {
-              canvas.setPageId(pageId);
-              // Si tenemos contenido, establecerlo
-              if (pageData.content || pageData.data) {
-                canvas.setEditorData(pageData.content || pageData.data);
-              }
+            builder.setAttribute("page-id", pageId);
+            // Use public API instead of piercing shadow DOM
+            if (pageData.content || pageData.data) {
+              builder.setPageData(pageData.content || pageData.data);
             }
           }
         });
@@ -217,7 +212,7 @@ export class PageManager extends HTMLElement {
           </div>
     </div>
     <div class="builder-container">
-      <page-builder pageId="${this.currentPageId}"></page-builder>
+      <page-builder page-id="${this.currentPageId}" mode="local"></page-builder>
     </div>
       `;
 

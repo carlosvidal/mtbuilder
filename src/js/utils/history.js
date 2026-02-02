@@ -1,4 +1,6 @@
 // En history.js
+import { eventBus } from "./event-bus.js";
+
 export class History {
   constructor() {
     this.states = [];
@@ -8,12 +10,6 @@ export class History {
 
   pushState(state) {
     if (!state) return;
-
-    console.log("Push State - Before:", {
-      statesLength: this.states.length,
-      currentIndex: this.currentIndex,
-      state,
-    });
 
     // Si estamos en el medio del historial, eliminar los estados futuros
     if (this.currentIndex < this.states.length - 1) {
@@ -26,7 +22,6 @@ export class History {
       this.currentIndex >= 0 &&
       JSON.stringify(lastState) === JSON.stringify(state)
     ) {
-      console.log("State unchanged, skipping...");
       return;
     }
 
@@ -40,13 +35,6 @@ export class History {
       this.currentIndex--;
     }
 
-    console.log("Push State - After:", {
-      statesLength: this.states.length,
-      currentIndex: this.currentIndex,
-      canUndo: this.canUndo(),
-      canRedo: this.canRedo(),
-    });
-
     this.emitHistoryChange();
   }
 
@@ -57,13 +45,6 @@ export class History {
     const previousState = JSON.parse(
       JSON.stringify(this.states[this.currentIndex])
     );
-
-    console.log("Undo - After:", {
-      newIndex: this.currentIndex,
-      state: previousState,
-      canUndo: this.canUndo(),
-      canRedo: this.canRedo(),
-    });
 
     this.emitHistoryChange();
     return previousState;
@@ -76,13 +57,6 @@ export class History {
     const nextState = JSON.parse(
       JSON.stringify(this.states[this.currentIndex])
     );
-
-    console.log("Redo - After:", {
-      newIndex: this.currentIndex,
-      state: nextState,
-      canUndo: this.canUndo(),
-      canRedo: this.canRedo(),
-    });
 
     this.emitHistoryChange();
     return nextState;
@@ -103,26 +77,11 @@ export class History {
   }
 
   emitHistoryChange() {
-    console.log("Emitting history change:", {
+    eventBus.emit("historyChange", {
       canUndo: this.canUndo(),
       canRedo: this.canRedo(),
       statesCount: this.states.length,
       currentIndex: this.currentIndex,
     });
-
-    const event = new CustomEvent("historyChange", {
-      detail: {
-        canUndo: this.canUndo(),
-        canRedo: this.canRedo(),
-        statesCount: this.states.length,
-        currentIndex: this.currentIndex,
-      },
-      bubbles: true,
-      composed: true,
-    });
-
-    if (window.builderEvents) {
-      window.builderEvents.dispatchEvent(event);
-    }
   }
 }

@@ -204,23 +204,11 @@ export class RowEditor extends BaseElementEditor {
 
     updatedStyles[property] = value;
 
-    console.log("🔧 Row Editor - Updating style:", {
-      rowId: this.currentRow.id,
-      property,
-      value,
-      updatedStyles,
-    });
-
     this.currentRow.styles = updatedStyles;
     this.emitUpdateEvent();
   }
 
   emitUpdateEvent() {
-    console.log("🔄 Row Editor - Emitting update:", {
-      rowId: this.currentRow.id,
-      styles: this.currentRow.styles,
-    });
-
     if (!this.currentRow) return;
 
     // Emitir el evento una sola vez al bus global de eventos

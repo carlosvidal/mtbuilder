@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Page Builder - PHP Integration Example</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; }
+
+    .status-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 0.5rem 1rem;
+      background: #333;
+      color: #ccc;
+      font-size: 0.8rem;
+      z-index: 9999;
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+    }
+    .status-bar .event {
+      padding: 0.25rem 0.5rem;
+      border-radius: 3px;
+      background: #444;
+    }
+    .status-bar .event.save { background: #2E7D32; color: white; }
+    .status-bar .event.ready { background: #1565C0; color: white; }
+    .status-bar .event.changed { background: #F57F17; color: white; }
+  </style>
+</head>
+<body>
+
+<!--
+  PHP Integration Example
+  =======================
+  In a real PHP application, you would render this page with server-side data:
+
+  <page-builder
+    page-id="<?= htmlspecialchars($page->id) ?>"
+    lang="<?= htmlspecialchars($locale) ?>"
+  ></page-builder>
+
+  <script>
+    const pageData = <?= json_encode($page->content) ?>;
+  </script>
+-->
+
+<!-- Standalone page-builder without page-manager -->
+<page-builder page-id="demo-page-1" lang="es"></page-builder>
+
+<!-- Status bar for debugging events -->
+<div class="status-bar" id="statusBar">
+  <span>Events:</span>
+</div>
+
+<script type="module">
+  // Import the builder (adjust path for your setup)
+  import "../dist/page-builder.js";
+
+  const builder = document.querySelector("page-builder");
+  const statusBar = document.getElementById("statusBar");
+
+  // Sample page data (in PHP this would come from the database)
+  const samplePageData = {
+    rows: [
+      {
+        id: "row-1",
+        type: "row-1",
+        columns: [
+          {
+            id: "col-1",
+            elements: [
+              {
+                id: "el-1",
+                type: "heading",
+                content: "Welcome to the Page Builder",
+                tagName: "h1",
+                styles: {}
+              },
+              {
+                id: "el-2",
+                type: "text",
+                content: "This is a standalone integration example. Edit this content and click Save.",
+                styles: {}
+              }
+            ]
+          }
+        ],
+        styles: {}
+      }
+    ],
+    globalSettings: {
+      maxWidth: "1200px",
+      padding: "20px",
+      backgroundColor: "#ffffff",
+      fontFamily: "system-ui, -apple-system, sans-serif"
+    }
+  };
+
+  function addEvent(type, message) {
+    const span = document.createElement("span");
+    span.className = `event ${type}`;
+    span.textContent = message;
+    statusBar.appendChild(span);
+
+    // Keep only last 5 events
+    const events = statusBar.querySelectorAll(".event");
+    if (events.length > 5) {
+      events[0].remove();
+    }
+  }
+
+  // 1. Wait for builder to be ready, then load data
+  builder.addEventListener("builder:ready", (e) => {
+    addEvent("ready", `Ready (pageId: ${e.detail.pageId})`);
+
+    // Load page data (in PHP, this comes from json_encode($page->content))
+    builder.setPageData(samplePageData);
+  });
+
+  // 2. Listen for save requests
+  builder.addEventListener("builder:save", async (e) => {
+    const { pageId, data } = e.detail;
+    addEvent("save", `Save requested for ${pageId}`);
+
+    // In a real PHP app, you would POST to your API:
+    // await fetch(`/api/pages/${pageId}`, {
+    //   method: "PUT",
+    //   headers: { "Content-Type": "application/json" },
+    //   body: JSON.stringify(data)
+    // });
+
+    // For demo, just log it
+    console.log("Save data:", { pageId, data });
+  });
+
+  // 3. Optional: listen for content changes (for autosave)
+  let changeCount = 0;
+  builder.addEventListener("builder:content-changed", (e) => {
+    changeCount++;
+    addEvent("changed", `Changed (#${changeCount})`);
+  });
+</script>
+
+</body>
+</html>

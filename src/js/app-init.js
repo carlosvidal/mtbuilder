@@ -3,7 +3,6 @@ import { store } from "./utils/store.js";
 import { eventBus } from "./utils/event-bus.js";
 
 export function initializeApp() {
-  console.log("🚀 Initializing Page Builder");
 
   // Crear el EventTarget global si no existe
   if (!window.builderEvents) {
@@ -34,7 +33,6 @@ export function initializeApp() {
   // Configurar suscripción al store para debug
   if (process.env.NODE_ENV !== "production") {
     store.subscribe((state, prevState) => {
-      console.log("Store updated:", { prev: prevState, next: state });
     });
   }
 }

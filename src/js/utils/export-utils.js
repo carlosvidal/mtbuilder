@@ -1,4 +1,6 @@
 // export-utils.js
+import { sanitizeHTML } from "./sanitize.js";
+
 export class ExportUtils {
   static generateExportableHTML(data, styles = {}) {
     const cssRules = this.generateCSS(styles);
@@ -160,7 +162,7 @@ export class ExportUtils {
                       case "divider":
                         return `<hr style="${styleString}">`;
                       case "html":
-                        return element.content || "";
+                        return sanitizeHTML(element.content) || "";
                       case "video":
                         const videoAttrs = Object.entries(
                           element.attributes || {}
@@ -271,7 +273,7 @@ export class ExportUtils {
                   </div>`;
 
                   case "html":
-                    return element.content || "";
+                    return sanitizeHTML(element.content) || "";
 
                   default:
                     return `<div style="${elementStyles}">${

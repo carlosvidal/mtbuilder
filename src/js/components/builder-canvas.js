@@ -2,6 +2,7 @@ import { store } from "../utils/store.js";
 import { eventBus } from "../utils/event-bus.js";
 import { CanvasStorage } from "../utils/canvas-storage.js";
 import { History } from "../utils/history.js";
+import { sanitizeHTML } from "../utils/sanitize.js";
 import { I18n } from "../utils/i18n.js";
 import { RowControls } from "./row-controls.js";
 
@@ -39,12 +40,9 @@ export class BuilderCanvas extends HTMLElement {
     this.draggedRow = null;
     this.draggedElement = null;
 
-    console.log("🔍 Initial store state:", store.getState());
-
     // Ensure we have a valid initial state
     const initialState = store.getState() || {};
     if (!Array.isArray(initialState.rows)) {
-      console.log("🔍 Initializing empty state");
       store.setState({
         rows: [],
         globalSettings: {
@@ -66,7 +64,6 @@ export class BuilderCanvas extends HTMLElement {
     // Subscribe to events
     this.setupEventSubscriptions();
     this.addEventListener("row-drag-start", (e) => {
-      console.log("🟡 Canvas received row-drag-start", e.detail.rowId);
       const row = this.shadowRoot.querySelector(
         `[data-id="${e.detail.rowId}"]`
       );
@@ -81,16 +78,10 @@ export class BuilderCanvas extends HTMLElement {
   }
 
   async connectedCallback() {
-    console.log("🎨 Canvas - Connected");
-
     const pageId = this.getAttribute("pageId");
     if (pageId) {
-      console.log("🎨 Canvas - Loading page data for:", pageId);
       await this.loadPageData(pageId);
     } else {
-      console.log(
-        "🎨 Canvas - No pageId provided, initializing with default state"
-      );
       store.setState({
         rows: [],
         globalSettings: {
@@ -171,11 +162,9 @@ export class BuilderCanvas extends HTMLElement {
 
   attributeChangedCallback(name, oldValue, newValue) {
     if (name === "pageId" && newValue && newValue !== oldValue) {
-      console.log("Canvas: pageId attribute changed to", newValue);
       this.pageId = newValue;
 
       const savedData = CanvasStorage.loadCanvas(newValue);
-      console.log("Canvas attributeChangedCallback - loaded data:", savedData);
 
       // Cargar datos en el store en lugar de propiedades locales
       if (savedData) {
@@ -199,8 +188,6 @@ export class BuilderCanvas extends HTMLElement {
 
   // 3. Métodos de renderizado
   render(suppressEvent = false) {
-    console.log("🎨 Canvas - Render called with state:", store.getState());
-
     // Asegurarnos de tener un estado válido
     const state = store.getState();
     const rows = Array.isArray(state?.rows) ? state.rows : [];
@@ -684,12 +671,9 @@ export class BuilderCanvas extends HTMLElement {
       }
     });
 
-    console.log("🎨 Canvas - Render completed");
   }
 
   renderRow(row) {
-    console.log("Rendering row:", row);
-
     // Generar string de estilos
     const styles = Object.entries(row.styles || {})
       .map(([key, value]) => {
@@ -699,8 +683,6 @@ export class BuilderCanvas extends HTMLElement {
         return `${cssKey}: ${cssValue}`;
       })
       .join(";");
-
-    console.log("Row styles:", styles); // Log para debugging
 
     return `
       <div class="builder-row" data-id="${row.id}" data-type="${row.type}">
@@ -754,17 +736,14 @@ export class BuilderCanvas extends HTMLElement {
 
     // Crear handlers con bind para poder removerlos después
     this._rowUpdatedHandler = (data) => {
-      console.log("🎯 Canvas - Received rowUpdated event", data);
       this.handleRowUpdated({ detail: data });
     };
 
     this._elementSelectedHandler = (data) => {
-      console.log("🎯 Canvas - Element selected", data);
       // Manejar selección de elemento
     };
 
     this._elementUpdatedHandler = (data) => {
-      console.log("🎯 Canvas - Element updated", data);
       const { elementId } = data;
       this.updateElementStyles(elementId, data);
     };
@@ -782,10 +761,7 @@ export class BuilderCanvas extends HTMLElement {
 
     // Mantener solo la suscripción al store
     this.unsubscribeStore = store.subscribe((newState, prevState) => {
-      console.log("🔄 Store state changed:", {
-        rowsChanged: newState.rows !== prevState?.rows,
-        settingsChanged: newState.globalSettings !== prevState?.globalSettings,
-      });
+      // Handled by handleStateChange
     });
   }
 
@@ -805,40 +781,11 @@ export class BuilderCanvas extends HTMLElement {
     }
   }
 
-  emitContentChanged(suppressEvent = false) {
-    const data = this.getEditorData();
-    console.log("Emitting content changed, data:", data);
-
-    if (!suppressEvent && !this._isUndoRedoOperation) {
-      this.history.pushState(data);
-      eventBus.emit("contentChanged", data);
-    }
-
-    // Guardar si hay pageId
-    const state = store.getState();
-    if (state.pageId) {
-      console.log("Saving to storage, pageId:", state.pageId);
-      CanvasStorage.saveCanvas(state.pageId, data);
-    } else {
-      console.warn("No pageId found in state");
-    }
-  }
-
   // 5. Manipulación de filas
   addRow(rowType) {
-    console.log("🔍 AddRow called:", {
-      rowType,
-      currentRows: store.getState().rows?.length,
-    });
-
     const state = store.getState();
     const timestamp = Date.now();
     const numColumns = parseInt(rowType.split("-")[1], 10);
-
-    console.log("🔍 Creating new row:", {
-      type: rowType,
-      columns: numColumns,
-    });
 
     const newRow = {
       id: `row-${timestamp}`,
@@ -850,17 +797,10 @@ export class BuilderCanvas extends HTMLElement {
       })),
     };
 
-    console.log("🔍 New row created:", newRow);
-
     store.setState({
       ...state,
       rows: [...(state.rows || []), newRow],
     });
-
-    console.log(
-      "🔍 Store updated with new row, current state:",
-      store.getState()
-    );
   }
 
   deleteRow(rowId) {
@@ -871,7 +811,6 @@ export class BuilderCanvas extends HTMLElement {
   }
 
   moveRow(rowId, targetIndex) {
-    console.log("Moving row", rowId, "to index", targetIndex);
     const state = store.getState();
     const rows = [...state.rows];
     const sourceIndex = rows.findIndex((row) => row.id === rowId);
@@ -956,8 +895,6 @@ export class BuilderCanvas extends HTMLElement {
         "application/x-builder-element"
       );
 
-      console.log("Drop event data:", { rowType, elementType });
-
       if (rowType?.startsWith("row-")) {
         this.addRow(rowType);
       } else if (elementType) {
@@ -1002,10 +939,7 @@ export class BuilderCanvas extends HTMLElement {
       (row) => row.id === draggedRowId
     );
 
-    if (draggedRowIndex === -1) {
-      console.warn("Dragged row not found:", draggedRowId);
-      return;
-    }
+    if (draggedRowIndex === -1) return;
 
     // Remove dragged row
     const [draggedRow] = currentRows.splice(draggedRowIndex, 1);
@@ -1021,12 +955,8 @@ export class BuilderCanvas extends HTMLElement {
       const insertAfter = e.clientY > rect.top + rect.height / 2;
 
       newIndex = insertAfter ? targetIndex + 1 : targetIndex;
-      console.log(
-        `🎯 Drop position: ${insertAfter ? "after" : "before"} row ${targetId}`
-      );
     } else {
       newIndex = currentRows.length;
-      console.log("🎯 Dropping at end of list");
     }
 
     // Insert row at new position
@@ -1100,13 +1030,11 @@ export class BuilderCanvas extends HTMLElement {
   }
 
   setupRowDragEvents() {
-    console.log("Setting up row drag events");
     const rows = this.shadowRoot.querySelectorAll(".builder-row");
 
     rows.forEach((row) => {
       // Eventos de drag & drop en la fila
       row.addEventListener("dragstart", (e) => {
-        console.log("Row dragstart", row.dataset.id);
         e.stopPropagation();
         row.classList.add("dragging");
         e.dataTransfer.setData("application/x-row-id", row.dataset.id);
@@ -1118,7 +1046,6 @@ export class BuilderCanvas extends HTMLElement {
       });
 
       row.addEventListener("dragend", (e) => {
-        console.log("Row dragend");
         e.stopPropagation();
         row.classList.remove("dragging");
         row.setAttribute("draggable", "false");
@@ -1144,10 +1071,8 @@ export class BuilderCanvas extends HTMLElement {
         e.stopPropagation();
         e.preventDefault();
 
-        console.log("🐈 Element clicked:", element.dataset.type, element.dataset.id);
 
         if (e.target.isContentEditable) {
-          console.log("🐈 Element is contentEditable, skipping");
           return;
         }
 
@@ -1167,10 +1092,8 @@ export class BuilderCanvas extends HTMLElement {
         const elementData = this.findElementById(elementId);
 
         if (elementData) {
-          console.log("🐈 Emitting elementSelected event:", elementData.type);
           eventBus.emit("elementSelected", elementData);
         } else {
-          console.log("🐈 No element data found for id:", elementId);
         }
       });
     });
@@ -1203,7 +1126,6 @@ export class BuilderCanvas extends HTMLElement {
         const elementId = deleteButton.getAttribute("data-element-id");
         
         if (elementId) {
-          console.log("🗑️ Deleting element:", elementId);
           this.deleteElement(elementId);
         }
       }
@@ -1251,7 +1173,6 @@ export class BuilderCanvas extends HTMLElement {
 
   // En builder-canvas.js
   updateElementStyles(elementId, data) {
-    console.log("🎯 Canvas - updateElementStyles called with:", { elementId, data });
     const state = store.getState();
     let elementUpdated = false;
 
@@ -1271,7 +1192,6 @@ export class BuilderCanvas extends HTMLElement {
             ...(data.tag !== undefined && { tag: data.tag })
           };
           
-          console.log("🎯 Canvas - Updated element:", updatedElements[elementIndex]);
           elementUpdated = true;
           return { ...column, elements: updatedElements };
         }
@@ -1284,30 +1204,24 @@ export class BuilderCanvas extends HTMLElement {
       store.setState({ ...state, rows: updatedRows });
       
       // Re-render the entire canvas to reflect all changes
-      console.log("🎯 Canvas - Re-rendering after element update");
       this.render();
     }
   }
 
   findElementById(id) {
-    console.log("Finding element by id:", id);
     const state = store.getState();
-    console.log("Current rows:", state.rows);
     for (const row of state.rows) {
       for (const column of row.columns) {
         const element = column.elements.find((el) => el.id === id);
         if (element) {
-          console.log("Found element:", element);
           return element;
         }
       }
     }
-    console.log("Element not found");
     return null;
   }
 
   handleRowUpdated(event) {
-    console.log("🎯 Canvas - Processing row update:", event.detail);
     const { rowId, styles, columns, type } = event.detail;
 
     const state = store.getState();
@@ -1334,7 +1248,6 @@ export class BuilderCanvas extends HTMLElement {
       type: type || updatedRows[rowIndex].type,
     };
 
-    console.log("🎯 Canvas - Updated row:", updatedRows[rowIndex]);
 
     // Actualizar store y emitir cambios
     store.setState({
@@ -1505,7 +1418,6 @@ export class BuilderCanvas extends HTMLElement {
       ...this.getDefaultContent(elementType),
     };
 
-    console.log("Adding element config:", elementConfig);
 
     // Update rows in state
     const updatedRows = state.rows.map((row) => {
@@ -1526,7 +1438,6 @@ export class BuilderCanvas extends HTMLElement {
       return row;
     });
 
-    console.log("Updated rows:", updatedRows);
 
     // Update store with new rows
     store.setState({
@@ -1725,7 +1636,7 @@ export class BuilderCanvas extends HTMLElement {
           <div class="builder-element-wrapper">
             ${elementControls}
             <table class="builder-element" style="${styleString}" data-id="${element.id}" data-type="${element.type}">
-              ${content}
+              ${sanitizeHTML(content)}
             </table>
           </div>
         `;
@@ -1777,7 +1688,7 @@ export class BuilderCanvas extends HTMLElement {
             <${tag} style="${styleString}" class="builder-element" data-id="${
           element.id
         }" data-type="${element.type}" ${attributesString}>
-              ${content || ""}
+              ${element.type === "html" ? sanitizeHTML(content) : (content || "")}
             </${tag}>
           </div>
         `;
@@ -1811,11 +1722,9 @@ export class BuilderCanvas extends HTMLElement {
   }
 
   async loadPageData(pageId) {
-    console.log("🎨 Canvas - Loading page data:", pageId);
 
     try {
       const savedData = await CanvasStorage.loadCanvas(pageId);
-      console.log("🎨 Canvas - Loaded data:", savedData);
 
       const initialState = {
         pageId, // <-- Importante: Asegurarnos de incluir el pageId
@@ -1859,7 +1768,6 @@ export class BuilderCanvas extends HTMLElement {
         this.history.pushState(initialState);
       }
 
-      console.log("🎨 Canvas - State updated:", store.getState());
     } catch (error) {
       console.error("🎨 Canvas - Error loading page data:", error);
       store.setState({
@@ -1915,11 +1823,9 @@ export class BuilderCanvas extends HTMLElement {
   }
 
   setPageId(pageId) {
-    console.log("Setting pageId:", pageId);
     
     const currentState = store.getState();
     const savedData = CanvasStorage.loadCanvas(pageId);
-    console.log("Loaded canvas data:", savedData);
 
     const newState = {
       ...currentState,
@@ -1941,7 +1847,6 @@ export class BuilderCanvas extends HTMLElement {
 
   loadSavedCanvas() {
     const state = store.getState();
-    console.log("Loading saved canvas for pageId:", state.pageId);
     if (!state.pageId) return;
 
     const savedData = CanvasStorage.loadCanvas(state.pageId);
@@ -1960,18 +1865,14 @@ export class BuilderCanvas extends HTMLElement {
   }
 
   setupRowEventListeners() {
-    console.log("Setting up row event listeners");
     // Los eventos ahora se manejan a través de eventBus en setupEventSubscriptions
     this.setupRowDragEvents();
   }
 
   handleRowDelete(e) {
-    console.log("HandleRowDelete called with:", e.detail);
     const { rowId } = e.detail;
     const state = store.getState();
-    console.log("Current state:", state);
     const updatedRows = state.rows.filter((row) => row.id !== rowId);
-    console.log("Updated rows:", updatedRows);
     store.setState({ ...state, rows: updatedRows });
     this.emitContentChanged();
   }
@@ -2032,7 +1933,6 @@ export class BuilderCanvas extends HTMLElement {
 
   handleRowDragStart(e) {
     const { rowId } = e.detail;
-    console.log("🔅 Row drag start:", rowId);
     const row = this.shadowRoot.querySelector(`[data-id="${rowId}"]`);
     if (row) {
       this.createTemporaryDropZones(row);
@@ -2043,7 +1943,6 @@ export class BuilderCanvas extends HTMLElement {
     const { rowId } = e.detail || e;
     const state = store.getState();
 
-    console.log("Selecting row:", rowId);
 
     // Deselect elements first
     this.shadowRoot
@@ -2084,13 +1983,11 @@ export class BuilderCanvas extends HTMLElement {
   }
 
   setupRowDragEvents() {
-    console.log("Setting up row drag events");
     const rows = this.shadowRoot.querySelectorAll(".builder-row");
 
     rows.forEach((row) => {
       // Eventos de drag & drop en la fila
       row.addEventListener("dragstart", (e) => {
-        console.log("Row dragstart", row.dataset.id);
         e.stopPropagation();
         row.classList.add("dragging");
         e.dataTransfer.setData("application/x-row-id", row.dataset.id);
@@ -2102,7 +1999,6 @@ export class BuilderCanvas extends HTMLElement {
       });
 
       row.addEventListener("dragend", (e) => {
-        console.log("Row dragend");
         e.stopPropagation();
         row.classList.remove("dragging");
         row.setAttribute("draggable", "false");
@@ -2167,20 +2063,18 @@ export class BuilderCanvas extends HTMLElement {
   // Método para emitir cambios
   emitContentChanged(suppressEvent = false) {
     const data = this.getEditorData();
-    console.log("Emitting content changed, data:", data);
 
     if (!suppressEvent && !this._isUndoRedoOperation) {
       this.history.pushState(data);
       eventBus.emit("contentChanged", data);
     }
 
-    // Guardar si hay pageId
+    // Only persist to localStorage if storageMode is not "external"
     const state = store.getState();
+    if (state.storageMode === "external") return;
+
     if (state.pageId) {
-      console.log("Saving to storage, pageId:", state.pageId);
       CanvasStorage.saveCanvas(state.pageId, data);
-    } else {
-      console.warn("No pageId found in state");
     }
   }
 

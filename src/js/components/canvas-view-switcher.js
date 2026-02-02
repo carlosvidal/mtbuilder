@@ -3,6 +3,7 @@ import { store } from "../utils/store.js";
 import { eventBus } from "../utils/event-bus.js";
 import { History } from "../utils/history.js";
 import { ExportUtils } from "../utils/export-utils.js";
+import { sanitizeHTML } from "../utils/sanitize.js";
 import { I18n } from "../utils/i18n.js";
 
 class CanvasViewSwitcher extends HTMLElement {
@@ -48,10 +49,8 @@ class CanvasViewSwitcher extends HTMLElement {
 
   attributeChangedCallback(name, oldValue, newValue) {
     if (name === "pageId" && newValue !== oldValue) {
-      console.log("Canvas: pageId attribute changed to", newValue);
       const switcher = this.shadowRoot.querySelector("canvas-view-switcher");
       if (switcher) {
-        console.log("Canvas: Setting pageId on switcher:", newValue);
         switcher.setAttribute("pageId", newValue);
       }
     }
@@ -157,6 +156,10 @@ class CanvasViewSwitcher extends HTMLElement {
             <builder-icon name="redo" size="20"></builder-icon>
             <span>${this.i18n.t("builder.canvas.actions.redo")}</span>
           </button>
+          <button class="save-button">
+            <builder-icon name="save" size="20"></builder-icon>
+            <span>${this.i18n.t("builder.canvas.actions.save")}</span>
+          </button>
         `;
         break;
       case "preview":
@@ -220,6 +223,12 @@ class CanvasViewSwitcher extends HTMLElement {
       }
       if (redoButton) {
         redoButton.addEventListener("click", this.handleRedo.bind(this));
+      }
+      const saveButton = this.shadowRoot.querySelector(".save-button");
+      if (saveButton) {
+        saveButton.addEventListener("click", () => {
+          eventBus.emit("saveRequested");
+        });
       }
     } else if (this.currentView === "preview") {
       this.shadowRoot.querySelectorAll(".device-button").forEach((button) => {
@@ -317,7 +326,7 @@ class CanvasViewSwitcher extends HTMLElement {
   updatePreviewView(data) {
     const previewContent = this.shadowRoot.querySelector(".preview-content");
     if (previewContent) {
-      previewContent.innerHTML = ExportUtils.generatePreviewHTML(data);
+      previewContent.innerHTML = sanitizeHTML(ExportUtils.generatePreviewHTML(data));
     }
   }
 
@@ -330,8 +339,6 @@ class CanvasViewSwitcher extends HTMLElement {
 
   setupInitialDOM() {
     const pageId = this.getAttribute("pageId");
-    console.log("CanvasViewSwitcher: Setting up DOM with pageId:", pageId);
-
     this.shadowRoot.innerHTML = `
  <style>
         :host {
@@ -424,6 +431,17 @@ class CanvasViewSwitcher extends HTMLElement {
         .view-actions button:disabled {
           opacity: 0.5;
           cursor: not-allowed;
+        }
+
+        .view-actions .save-button {
+          background: #4CAF50;
+          color: white;
+          padding: 0.5rem 1rem;
+        }
+
+        .view-actions .save-button:hover {
+          background: #388E3C;
+          color: white;
         }
 
         .view-actions .copy-button,

@@ -27,7 +27,6 @@ export class CanvasStorage {
 
       const serializedData = JSON.stringify(processedData);
       localStorage.setItem(key, serializedData);
-      console.log("Canvas saved successfully:", { key, data: processedData });
     } catch (error) {
       console.error("Error saving canvas:", error);
     }
@@ -70,7 +69,6 @@ export class CanvasStorage {
     try {
       const key = this.getStorageKey(pageId);
       localStorage.removeItem(key);
-      console.log("Canvas cleared successfully:", key);
     } catch (error) {
       console.error("Error clearing canvas:", error);
     }

@@ -57,12 +57,8 @@ export class I18n {
   async loadTranslations(locale) {
     try {
       const normalizedLocale = this.normalizeLocale(locale);
-      console.log(
-        `🌍 Attempting to load translations for locale: ${normalizedLocale}`
-      );
 
       if (this.translations[normalizedLocale]) {
-        console.log("✅ Using cached translations");
         return true;
       }
 
@@ -73,7 +69,6 @@ export class I18n {
           : "";
       const path = `${basePath}/src/locales/${normalizedLocale}.json`;
 
-      console.log(`🔍 Loading from: ${path}`);
       const response = await fetch(path);
 
       if (!response.ok) {
@@ -81,13 +76,10 @@ export class I18n {
       }
 
       const translations = await response.json();
-      console.log("✅ Successfully loaded translations from file");
       this.translations[normalizedLocale] =
         this.flattenTranslations(translations);
       return true;
     } catch (error) {
-      console.log(`⚠️ Could not load from file: ${error.message}`);
-      console.log("↪️ Using built-in translations as fallback");
 
       const builtInTranslations = await this.getBuiltInTranslations(
         normalizedLocale

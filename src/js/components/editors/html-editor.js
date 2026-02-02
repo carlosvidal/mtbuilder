@@ -1,4 +1,5 @@
 import { BaseElementEditor } from "./base-element-editor.js";
+import { sanitizeHTML } from "../../utils/sanitize.js";
 
 export class HtmlEditor extends BaseElementEditor {
   render() {
@@ -18,7 +19,7 @@ export class HtmlEditor extends BaseElementEditor {
             <div class="form-group">
               <label>Vista previa</label>
               <div class="preview-container" style="padding: 1rem; border: 1px solid #ddd; border-radius: 4px; margin-top: 0.5rem;">
-                ${this.currentElement.content || "<em>Sin contenido</em>"}
+                ${sanitizeHTML(this.currentElement.content) || "<em>Sin contenido</em>"}
               </div>
             </div>
           </div>
@@ -40,7 +41,7 @@ export class HtmlEditor extends BaseElementEditor {
 
     if (textarea && previewContainer) {
       textarea.addEventListener("input", (e) => {
-        previewContainer.innerHTML = e.target.value || "<em>Sin contenido</em>";
+        previewContainer.innerHTML = sanitizeHTML(e.target.value) || "<em>Sin contenido</em>";
       });
     }
   }

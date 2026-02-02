@@ -38,21 +38,9 @@ export class Store {
   }
 
   setState(updater) {
-    console.log("🔄 Store setState called", {
-      timestamp: new Date().toISOString(),
-      isFunction: typeof updater === "function",
-    });
-
     const prevState = { ...this._state };
     const nextState =
       typeof updater === "function" ? updater(this._state) : updater;
-
-    console.log("🔄 State diff:", {
-      rowCountBefore: prevState.rows?.length,
-      rowCountAfter: nextState.rows?.length,
-      selectedRowBefore: prevState.selectedRow?.id,
-      selectedRowAfter: nextState.selectedRow?.id,
-    });
 
     this._state = {
       ...this._state,
@@ -64,7 +52,7 @@ export class Store {
       try {
         listener(this._state, prevState);
       } catch (error) {
-        console.error("🔄 Error in state listener:", error);
+        console.error("Error in state listener:", error);
       }
     }
   }

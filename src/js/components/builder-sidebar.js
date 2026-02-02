@@ -56,7 +56,6 @@ export class BuilderSidebar extends HTMLElement {
 
     // Create handlers
     this.rowSelectedHandler = (e) => {
-      console.log("Row selected event received:", e.detail);
       this.selectedRow = e.detail.row;
       this.showingRowEditor = true;
       this.showingEditor = false;
@@ -65,28 +64,23 @@ export class BuilderSidebar extends HTMLElement {
     };
 
     this.rowDeselectedHandler = () => {
-      console.log("Row deselected event received");
       this.selectedRow = null;
       this.showingRowEditor = false;
       this.render();
     };
 
     this.elementSelectedHandler = (data) => {
-      console.log("🔊 Sidebar - Element selected event received:", data?.type, data?.id);
-      console.log("🔊 Sidebar - Event data:", data);
       
       this.selectedElement = data;
       this.showingEditor = true;
       this.showingRowEditor = false;
       this.selectedRow = null;
       
-      console.log("🔊 Sidebar - Updated selectedElement:", this.selectedElement?.type);
       
       this.render();
     };
 
     this.elementDeselectedHandler = () => {
-      console.log("Element deselected event received");
       this.selectedElement = null;
       this.showingEditor = false;
       this.render();
@@ -100,11 +94,6 @@ export class BuilderSidebar extends HTMLElement {
   }
 
   handleStateChange(newState, prevState) {
-    console.log("Sidebar state change:", {
-      prev: prevState,
-      next: newState,
-    });
-
     // Check if relevant state has changed
     const needsUpdate =
       newState.selectedRow !== prevState?.selectedRow ||
@@ -113,7 +102,6 @@ export class BuilderSidebar extends HTMLElement {
       JSON.stringify(newState.rows) !== JSON.stringify(prevState?.rows);
 
     if (needsUpdate) {
-      console.log("Sidebar needs update, rendering...");
       this.render();
 
       // Setup drag and drop after render if needed
@@ -300,7 +288,6 @@ export class BuilderSidebar extends HTMLElement {
   }
 
   connectedCallback() {
-    console.log("🏁 Sidebar - Connected");
 
     // Configurar event listeners y suscripciones - now handled in setupEventSubscriptions
 
@@ -400,14 +387,11 @@ export class BuilderSidebar extends HTMLElement {
   // Método para configurar los event listeners del tab principal
   // En builder-sidebar.js, modificar setupPrincipalTabListeners
   setupPrincipalTabListeners() {
-    console.log("🔧 Sidebar - Setting up principal tab listeners");
 
     const maxWidthInput = this.shadowRoot.getElementById("maxWidthInput");
-    console.log("🔧 Sidebar - maxWidthInput element:", maxWidthInput);
 
     if (maxWidthInput) {
       maxWidthInput.addEventListener("input", (e) => {
-        console.log("📝 Sidebar - maxWidth changed:", e.target.value);
         eventBus.emit("globalSettingsUpdated", {
           settings: {
             maxWidth: `${e.target.value}px`,
@@ -456,13 +440,6 @@ export class BuilderSidebar extends HTMLElement {
   }
 
   render() {
-    console.log("🎨 Sidebar - Rendering", {
-      showingEditor: this.showingEditor,
-      showingRowEditor: this.showingRowEditor,
-      selectedElement: this.selectedElement?.type,
-      selectedRow: this.selectedRow?.id
-    });
-
     this.shadowRoot.innerHTML = `
       ${this.getStyles()}
       <div class="sidebar-container">
@@ -477,21 +454,11 @@ export class BuilderSidebar extends HTMLElement {
     `;
 
     requestAnimationFrame(() => {
-      console.log("🎨 Sidebar - requestAnimationFrame:", {
-        showingEditor: this.showingEditor,
-        selectedElement: !!this.selectedElement,
-        showingRowEditor: this.showingRowEditor,
-        selectedRow: !!this.selectedRow
-      });
-      
       if (this.showingEditor && this.selectedElement) {
-        console.log("🎨 Sidebar - Setting up element editor");
         this.setupElementEditor();
       } else if (this.showingRowEditor && this.selectedRow) {
-        console.log("🎨 Sidebar - Setting up row editor");
         this.setupRowEditor();
       } else {
-        console.log("🎨 Sidebar - Setting up tabs and drag");
         this.setupTabListeners();
         this.setupDragAndDrop();
       }
@@ -542,7 +509,6 @@ export class BuilderSidebar extends HTMLElement {
     const backButton = this.shadowRoot.querySelector("#backButton");
 
     if (rowEditor && this.selectedRow) {
-      console.log("Setting up row editor with row:", this.selectedRow);
       rowEditor.setRow(this.selectedRow);
     }
 
@@ -551,7 +517,6 @@ export class BuilderSidebar extends HTMLElement {
         e.preventDefault();
         e.stopPropagation();
 
-        console.log("Closing row editor");
         this.showingRowEditor = false;
         this.selectedRow = null;
         eventBus.emit("rowDeselected");
@@ -562,7 +527,6 @@ export class BuilderSidebar extends HTMLElement {
 
   handleRowUpdated(event) {
     const { rowId, styles, columns } = event.detail;
-    console.log("Row updated:", { rowId, styles, columns });
 
     eventBus.emit("rowUpdated", {
       rowId,
@@ -575,17 +539,8 @@ export class BuilderSidebar extends HTMLElement {
     const editor = this.shadowRoot.querySelector("element-editor");
     const backButton = this.shadowRoot.querySelector("#backButton");
 
-    console.log("🔧 Setting up element editor:", {
-      editor: !!editor,
-      selectedElement: this.selectedElement,
-      elementType: this.selectedElement?.type
-    });
-
     if (editor && this.selectedElement) {
-      console.log("🔧 Calling setElement on editor");
       editor.setElement(this.selectedElement);
-    } else {
-      console.log("🔧 Missing editor or selectedElement", { editor: !!editor, selectedElement: !!this.selectedElement });
     }
 
     if (backButton) {

@@ -53,7 +53,6 @@ export class PageBuilderEventHandler {
 
   handlePagesLoaded(event) {
     const { pages } = event.detail;
-    console.log("Pages loaded:", pages);
     // Aquí puedes implementar lógica adicional cuando se cargan las páginas
   }
 
@@ -65,7 +64,6 @@ export class PageBuilderEventHandler {
 
   handlePageSaved(event) {
     const { page } = event.detail;
-    console.log("Page saved:", page);
     this.showNotification("success", "Page saved successfully");
   }
 
@@ -77,7 +75,6 @@ export class PageBuilderEventHandler {
 
   handlePageDeleted(event) {
     const { pageId } = event.detail;
-    console.log("Page deleted:", pageId);
     this.showNotification("success", "Page deleted successfully");
   }
 
@@ -88,13 +85,11 @@ export class PageBuilderEventHandler {
   }
 
   handleSyncStarted() {
-    console.log("Sync started");
     this.showNotification("info", "Synchronizing pages...");
   }
 
   handleSyncCompleted(event) {
     const { pages } = event.detail;
-    console.log("Sync completed:", pages);
     this.showNotification("success", "Pages synchronized successfully");
   }
 
