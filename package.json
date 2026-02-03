@@ -1,7 +1,20 @@
 {
-  "name": "page-builder",
+  "name": "@carlosvidalperu/mtbuilder",
   "version": "1.0.0",
+  "description": "Lightweight drag-and-drop page builder web component",
   "type": "module",
+  "main": "dist/page-builder.umd.cjs",
+  "module": "dist/page-builder.js",
+  "exports": {
+    ".": {
+      "import": "./dist/page-builder.js",
+      "require": "./dist/page-builder.umd.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "src/locales"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "rimraf dist && NODE_ENV=production vite build",
@@ -12,7 +25,25 @@
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "page-builder",
+    "drag-and-drop",
+    "web-component",
+    "wysiwyg",
+    "email-builder",
+    "landing-page"
+  ],
+  "author": "Carlos Vidal",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/carlosvidalperu/mtbuilder.git"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",

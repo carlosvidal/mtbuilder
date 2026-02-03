@@ -5,6 +5,7 @@ import { History } from "../utils/history.js";
 import { sanitizeHTML } from "../utils/sanitize.js";
 import { I18n } from "../utils/i18n.js";
 import { RowControls } from "./row-controls.js";
+import { InlineEditor } from "./inline-editor.js";
 
 export class BuilderCanvas extends HTMLElement {
   // 1. Propiedades estáticas
@@ -39,6 +40,7 @@ export class BuilderCanvas extends HTMLElement {
     this.history = new History();
     this.draggedRow = null;
     this.draggedElement = null;
+    this.inlineEditor = null;
 
     // Ensure we have a valid initial state
     const initialState = store.getState() || {};
@@ -505,6 +507,113 @@ export class BuilderCanvas extends HTMLElement {
   min-height: 60px;
   color: #999;
   font-size: 0.8rem;
+}
+
+.inline-editor-toolbar {
+  position: absolute;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  padding: 4px 6px;
+  background: #333;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  pointer-events: auto;
+}
+
+.toolbar-buttons-panel {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.inline-editor-toolbar button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #ddd;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.inline-editor-toolbar button:hover {
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+}
+
+.inline-editor-toolbar button.active {
+  background: rgba(255,255,255,0.25);
+  color: #fff;
+}
+
+.inline-editor-toolbar .toolbar-font-size {
+  height: 28px;
+  border: none;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.1);
+  color: #ddd;
+  font-size: 12px;
+  padding: 0 4px;
+  cursor: pointer;
+  outline: none;
+}
+
+.inline-editor-toolbar .toolbar-font-size:hover {
+  background: rgba(255,255,255,0.2);
+}
+
+.toolbar-link-panel {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.toolbar-link-input {
+  height: 28px;
+  width: 200px;
+  border: none;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  font-size: 13px;
+  padding: 0 8px;
+  outline: none;
+}
+
+.toolbar-link-input::placeholder {
+  color: rgba(255,255,255,0.4);
+}
+
+.toolbar-link-input:focus {
+  background: rgba(255,255,255,0.25);
+}
+
+.link-apply-btn {
+  color: #4CAF50 !important;
+}
+
+.link-remove-btn {
+  color: #f44336 !important;
+}
+
+.builder-element[contenteditable="true"] {
+  outline: 2px solid #2196F3;
+  outline-offset: 2px;
+  cursor: text;
+}
+
+.builder-element[contenteditable="true"] blockquote {
+  border-left: 3px solid #ccc;
+  margin: 0.5em 0;
+  padding: 0.3em 0.8em;
+  color: #555;
 }
 
     .empty-column {
@@ -1129,11 +1238,13 @@ export class BuilderCanvas extends HTMLElement {
 
       element.addEventListener("click", (e) => {
         e.stopPropagation();
-        e.preventDefault();
 
-        if (e.target.isContentEditable) {
+        // If the element or target is currently being edited inline, don't interfere
+        if (e.target.isContentEditable || element.isContentEditable) {
           return;
         }
+
+        e.preventDefault();
 
         this.shadowRoot.querySelectorAll(".selected").forEach((el) => {
           el.classList.remove("selected");
@@ -1187,35 +1298,53 @@ export class BuilderCanvas extends HTMLElement {
   }
 
   setupTextEditing(element) {
+    const isHeading = element.dataset.type === "heading";
+    const isButton = element.dataset.type === "button";
+
     element.addEventListener("dblclick", (e) => {
       e.stopPropagation();
       e.preventDefault();
 
-      element.contentEditable = true;
-      element.focus();
-
-      // Select all text
-      const range = document.createRange();
-      range.selectNodeContents(element);
-      const selection = window.getSelection();
-      selection.removeAllRanges();
-      selection.addRange(range);
+      if (!this.inlineEditor) {
+        this.inlineEditor = new InlineEditor(this.shadowRoot);
+        this.inlineEditor._onDetach = (el, html) => {
+          const elId = el.dataset?.id;
+          const elData = this.findElementById(elId);
+          if (elData && html !== null) {
+            elData.content = html;
+            this.emitContentChanged();
+          }
+        };
+      }
+      this.inlineEditor.attach(element);
     });
 
     element.addEventListener("blur", () => {
-      element.contentEditable = false;
+      // Delay blur to let toolbar mousedown preventDefault keep focus.
+      if (this._blurTimeout) clearTimeout(this._blurTimeout);
+      this._blurTimeout = setTimeout(() => {
+        // If the inline editor owns this element, let it handle everything
+        if (this.inlineEditor && this.inlineEditor.activeElement === element) return;
+        // If the inline editor is in link-input mode, abort
+        if (this.inlineEditor && this.inlineEditor._linkMode) return;
 
-      const elementId = element.dataset.id;
-      const elementData = this.findElementById(elementId);
-
-      if (elementData) {
-        elementData.content = element.textContent;
-        this.emitContentChanged();
-      }
+        // Fallback: if element is still contentEditable but inlineEditor released it
+        if (element.isContentEditable) {
+          element.contentEditable = false;
+          const elementId = element.dataset.id;
+          const elementData = this.findElementById(elementId);
+          if (elementData) {
+            elementData.content = element.innerHTML;
+            this.emitContentChanged();
+          }
+        }
+      }, 150);
     });
 
     element.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") {
+      if (!element.isContentEditable) return;
+      // Headings and buttons: Enter exits editing
+      if ((isHeading || isButton) && e.key === "Enter") {
         e.preventDefault();
         element.blur();
       }
@@ -1927,7 +2056,7 @@ export class BuilderCanvas extends HTMLElement {
             <${tag} style="${styleString}" class="builder-element" data-id="${
           element.id
         }" data-type="${element.type}" ${attributesString}>
-              ${element.type === "html" ? sanitizeHTML(content) : (content || "")}
+              ${["html", "text", "heading"].includes(element.type) ? sanitizeHTML(content) : (content || "")}
             </${tag}>
           </div>
         `;
