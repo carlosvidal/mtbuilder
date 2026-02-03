@@ -20,6 +20,29 @@ A lightweight, zero-dependency page builder using Web Components. Drag-and-drop 
 
 ### Installation
 
+**npm:**
+```bash
+npm install @carlosvidalperu/mtbuilder
+```
+
+**CDN (jsDelivr):**
+```html
+<script src="https://cdn.jsdelivr.net/npm/@carlosvidalperu/mtbuilder@1/dist/page-builder.umd.cjs"></script>
+```
+
+**CDN (unpkg):**
+```html
+<script src="https://unpkg.com/@carlosvidalperu/mtbuilder@1/dist/page-builder.umd.cjs"></script>
+```
+
+**ESM via CDN:**
+```html
+<script type="module">
+  import "@carlosvidalperu/mtbuilder";
+</script>
+```
+
+**From source:**
 ```bash
 git clone https://github.com/carlosvidal/mtbuilder.git
 cd mtbuilder

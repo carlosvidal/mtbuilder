@@ -84,3 +84,19 @@ rows[] → { id, type: "row-1"|"row-2"|"row-3"|"row-4", columns[] → { id, elem
 ```
 
 The library auto-initializes on DOMContentLoaded via `app-init.js`.
+
+## npm Publishing
+
+Package: `@carlosvidalperu/mtbuilder` — https://www.npmjs.com/package/@carlosvidalperu/mtbuilder
+
+```bash
+# Publish workflow (requires clean git working directory):
+git add . && git commit -m "description"
+
+# Bump version + publish (2FA OTP required):
+npm version patch && npm publish --otp=CODE   # bug fix: 1.0.0 → 1.0.1
+npm version minor && npm publish --otp=CODE   # new feature: 1.0.x → 1.1.0
+npm version major && npm publish --otp=CODE   # breaking change: 1.x.x → 2.0.0
+```
+
+`prepublishOnly` script runs `npm run build` automatically before publish. The `files` field limits the package to `dist/` and `src/locales/`.
