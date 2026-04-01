@@ -1,4 +1,16 @@
 // i18n.js
+// Import locale files directly so they're bundled
+import enLocale from '../../locales/en.json'
+import esLocale from '../../locales/es.json'
+import frLocale from '../../locales/fr.json'
+
+// Bundled translations
+const bundledTranslations = {
+  en: enLocale,
+  es: esLocale,
+  fr: frLocale
+}
+
 export class I18n {
   // Define las propiedades estáticas
   static supportedLocales = ["en", "es", "fr"];
@@ -53,41 +65,30 @@ export class I18n {
     return this.fallbackLocale;
   }
 
-  // En i18n.js
+  // Load translations from bundled JSON files
   async loadTranslations(locale) {
-    try {
-      const normalizedLocale = this.normalizeLocale(locale);
+    const normalizedLocale = this.normalizeLocale(locale);
 
-      if (this.translations[normalizedLocale]) {
-        return true;
-      }
-
-      // Detectar base URL dinámica
-      const basePath =
-        window.location.hostname === "carlosvidal.github.io"
-          ? "/mtbuilder" // Cambia esto por tu nombre de repositorio
-          : "";
-      const path = `${basePath}/src/locales/${normalizedLocale}.json`;
-
-      const response = await fetch(path);
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const translations = await response.json();
-      this.translations[normalizedLocale] =
-        this.flattenTranslations(translations);
-      return true;
-    } catch (error) {
-
-      const builtInTranslations = await this.getBuiltInTranslations(
-        normalizedLocale
-      );
-      this.translations[normalizedLocale] =
-        this.flattenTranslations(builtInTranslations);
+    if (this.translations[normalizedLocale]) {
       return true;
     }
+
+    // Use bundled translations (imported at build time)
+    const bundledData = bundledTranslations[normalizedLocale];
+    if (bundledData) {
+      this.translations[normalizedLocale] = this.flattenTranslations(bundledData);
+      return true;
+    }
+
+    // Fallback to English if locale not found
+    if (bundledTranslations[this.fallbackLocale]) {
+      this.translations[normalizedLocale] = this.flattenTranslations(
+        bundledTranslations[this.fallbackLocale]
+      );
+      return true;
+    }
+
+    return false;
   }
 
   // Método para obtener las traducciones incorporadas
