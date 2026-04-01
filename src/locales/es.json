@@ -278,5 +278,30 @@
             "assets": "Incluir recursos",
             "minify": "Minificar salida"
         }
+    },
+    "templates": {
+        "picker": {
+            "title": "Elegir una Plantilla"
+        },
+        "blank": {
+            "name": "Página en Blanco",
+            "description": "Empezar desde cero"
+        },
+        "heroLanding": {
+            "name": "Landing con Hero",
+            "description": "Sección hero con botón de acción"
+        },
+        "productPage": {
+            "name": "Página de Producto",
+            "description": "Vitrina de producto con imagen y detalles"
+        },
+        "aboutPage": {
+            "name": "Página Nosotros",
+            "description": "Página sobre la empresa o persona"
+        },
+        "contactPage": {
+            "name": "Página de Contacto",
+            "description": "Diseño de información de contacto"
+        }
     }
 }

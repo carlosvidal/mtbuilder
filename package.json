@@ -1,6 +1,6 @@
 {
   "name": "@carlosvidalperu/mtbuilder",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "Lightweight drag-and-drop page builder web component",
   "type": "module",
   "main": "dist/page-builder.umd.cjs",

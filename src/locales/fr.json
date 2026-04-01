@@ -278,4 +278,30 @@
             "assets": "Inclure les ressources",
             "minify": "Minifier la sortie"
         }
+    },
+    "templates": {
+        "picker": {
+            "title": "Choisir un Modèle"
+        },
+        "blank": {
+            "name": "Page Vierge",
+            "description": "Commencer de zéro"
+        },
+        "heroLanding": {
+            "name": "Landing avec Hero",
+            "description": "Section hero avec bouton d'action"
+        },
+        "productPage": {
+            "name": "Page Produit",
+            "description": "Vitrine produit avec image et détails"
+        },
+        "aboutPage": {
+            "name": "Page À Propos",
+            "description": "Page à propos de l'entreprise"
+        },
+        "contactPage": {
+            "name": "Page Contact",
+            "description": "Mise en page des informations de contact"
+        }
     }
+}

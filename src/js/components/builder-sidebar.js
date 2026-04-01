@@ -2,6 +2,7 @@
 import { BuilderIcon } from "./builder-icon.js";
 import { I18n } from "../utils/i18n.js";
 import { registerEditors } from "./register-editors.js";
+import { ElementEditorFactory } from "./element-editor-factory.js";
 import { store } from "../utils/store.js";
 import { eventBus } from "../utils/event-bus.js";
 import { ROW_LAYOUTS } from "../utils/responsive-config.js";
@@ -23,20 +24,7 @@ export class BuilderSidebar extends HTMLElement {
       mobile: layout.mobile,
     }));
 
-    this.elements = [
-      { type: "heading" },
-      { type: "text" },
-      { type: "image" },
-      { type: "button" },
-      { type: "link" },
-      { type: "table" },
-      { type: "list" },
-      { type: "video" },
-      { type: "divider" },
-      { type: "spacer" },
-      { type: "html" },
-      { type: "container" },
-    ];
+    this.elements = ElementEditorFactory.getRegisteredTypes();
 
     // Subscribe to store changes
     this.unsubscribeStore = store.subscribe(this.handleStateChange.bind(this));

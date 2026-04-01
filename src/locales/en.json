@@ -278,5 +278,30 @@
             "assets": "Include assets",
             "minify": "Minify output"
         }
+    },
+    "templates": {
+        "picker": {
+            "title": "Choose a Template"
+        },
+        "blank": {
+            "name": "Blank Page",
+            "description": "Start from scratch"
+        },
+        "heroLanding": {
+            "name": "Hero Landing",
+            "description": "Hero section with CTA button"
+        },
+        "productPage": {
+            "name": "Product Page",
+            "description": "Product showcase with image and details"
+        },
+        "aboutPage": {
+            "name": "About Page",
+            "description": "Company or personal about page"
+        },
+        "contactPage": {
+            "name": "Contact Page",
+            "description": "Contact information layout"
+        }
     }
 }

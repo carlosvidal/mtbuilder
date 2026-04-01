@@ -2,6 +2,8 @@
 import { store } from "../utils/store.js";
 import { eventBus } from "../utils/event-bus.js";
 import { I18n } from "../utils/i18n.js";
+import { ExportUtils } from "../utils/export-utils.js";
+import { MediaProvider } from "../utils/media-provider.js";
 
 class PageBuilder extends HTMLElement {
   constructor() {
@@ -120,11 +122,20 @@ class PageBuilder extends HTMLElement {
   }
 
   /**
+   * Set a media provider for image uploads.
+   * @param {object} provider - { upload(file): Promise<{url, width?, height?}> }
+   */
+  setMediaProvider(provider) {
+    MediaProvider.setProvider(provider);
+  }
+
+  /**
    * Trigger a save event with current data.
    * Dispatches 'builder:save' CustomEvent on this element.
    */
   save() {
     const data = this.getPageData();
+    const html = ExportUtils.generatePreviewHTML(data);
     this.dispatchEvent(
       new CustomEvent("builder:save", {
         bubbles: true,
@@ -132,6 +143,7 @@ class PageBuilder extends HTMLElement {
         detail: {
           pageId: this._getPageId(),
           data,
+          html,
         },
       })
     );
@@ -164,6 +176,7 @@ class PageBuilder extends HTMLElement {
   _setupEventRelay() {
     // Relay contentChanged from eventBus to DOM CustomEvent
     const unsubContent = eventBus.on("contentChanged", (data) => {
+      const html = ExportUtils.generatePreviewHTML(data);
       this.dispatchEvent(
         new CustomEvent("builder:content-changed", {
           bubbles: true,
@@ -171,6 +184,7 @@ class PageBuilder extends HTMLElement {
           detail: {
             pageId: this._getPageId(),
             data,
+            html,
           },
         })
       );

@@ -1,8 +1,10 @@
 // page-manager.js
-import { BuilderIcon } from "./builder-icon.js"; // Importar el componente BuilderIcon para mostrar los iconos
+import { BuilderIcon } from "./builder-icon.js";
 import { PageBuilderDataProvider } from "./page-builder-data-provider.js";
 import { PageBuilderEventHandler } from "./page-builder-events.js";
 import { I18n } from "../utils/i18n.js";
+import { TemplatePicker } from "./template-picker.js";
+import { TemplateRegistry } from "../utils/template-registry.js";
 
 export class PageManager extends HTMLElement {
   static get observedAttributes() {
@@ -374,32 +376,66 @@ export class PageManager extends HTMLElement {
   }
 
   async handleNewPage() {
-    try {
-      const pageId = `page-${Date.now()}`;
-      const newPage = {
-        id: pageId,
-        name: `Nueva Página ${this.pages.length + 1}`,
-        content: { rows: [] },
-        lastModified: new Date().toISOString(),
-      };
+    const picker = document.createElement("template-picker");
 
-      await this.dataProvider.savePage(newPage);
-      this.currentPageId = pageId;
-      await this.loadPages();
-      this.render();
+    picker.onSelect = async (template) => {
+      try {
+        const pageId = `page-${Date.now()}`;
+        // Deep clone the template data so each page gets its own copy
+        const templateData = JSON.parse(JSON.stringify(template.data));
+        // Generate unique IDs for all rows, columns, and elements
+        this._regenerateIds(templateData);
 
-      this.dispatchEvent(
-        new CustomEvent("pageSaved", {
-          detail: { page: newPage },
-        })
-      );
-    } catch (error) {
-      console.error("Error creating new page:", error);
-      this.dispatchEvent(
-        new CustomEvent("saveError", {
-          detail: { error },
-        })
-      );
+        const newPage = {
+          id: pageId,
+          name: `${template.name} ${this.pages.length + 1}`,
+          content: templateData,
+          lastModified: new Date().toISOString(),
+        };
+
+        await this.dataProvider.savePage(newPage);
+        this.currentPageId = pageId;
+        await this.loadPages();
+        this.render();
+
+        this.dispatchEvent(
+          new CustomEvent("pageSaved", {
+            detail: { page: newPage },
+          })
+        );
+      } catch (error) {
+        console.error("Error creating new page:", error);
+        this.dispatchEvent(
+          new CustomEvent("saveError", {
+            detail: { error },
+          })
+        );
+      }
+    };
+
+    picker.onCancel = () => {
+      // Do nothing — picker removes itself
+    };
+
+    document.body.appendChild(picker);
+  }
+
+  _regenerateIds(data) {
+    const newId = () => `id-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    if (data.rows) {
+      for (const row of data.rows) {
+        row.id = newId();
+        if (row.columns) {
+          for (const col of row.columns) {
+            col.id = newId();
+            if (col.elements) {
+              for (const el of col.elements) {
+                el.id = newId();
+              }
+            }
+          }
+        }
+      }
     }
   }
 

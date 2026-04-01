@@ -11,37 +11,56 @@ import { VideoEditor } from "./editors/video-editor.js";
 import { SpacerEditor } from "./editors/spacer-editor.js";
 import { ContainerEditor } from "./editors/container-editor.js";
 
+// Registry of element types: type → { editorClass, icon, label, category }
+const registry = new Map();
+
 export class ElementEditorFactory {
+  static register(type, editorClass, meta = {}) {
+    registry.set(type, { editorClass, ...meta });
+  }
+
+  static unregister(type) {
+    registry.delete(type);
+  }
+
   static createEditor(elementType) {
-    switch (elementType) {
-      case "heading":
-        return new HeadingEditor();
-      case "image":
-        return new ImageEditor();
-      case "button":
-        return new ButtonEditor();
-      case "link":
-        return new LinkEditor();
-      case "divider":
-        return new DividerEditor();
-      case "html":
-        return new HtmlEditor();
-      case "text":
-        return new TextEditor();
-      case "table":
-        return new TableEditor();
-      case "list":
-        return new ListEditor();
-      case "video":
-        return new VideoEditor();
-      case "spacer":
-        return new SpacerEditor();
-      case "container":
-        return new ContainerEditor();
-      case "row":
-        return null;
-      default:
-        throw new Error(`No editor available for element type: ${elementType}`);
+    if (elementType === "row") return null;
+
+    const entry = registry.get(elementType);
+    if (!entry) {
+      throw new Error(`No editor available for element type: ${elementType}`);
     }
+    return new entry.editorClass();
+  }
+
+  static getRegisteredTypes() {
+    return Array.from(registry.entries()).map(([type, meta]) => ({
+      type,
+      icon: meta.icon || null,
+      label: meta.label || type,
+      category: meta.category || "basic",
+    }));
+  }
+
+  static has(type) {
+    return registry.has(type);
+  }
+
+  static clear() {
+    registry.clear();
   }
 }
+
+// Register built-in editors
+ElementEditorFactory.register("heading", HeadingEditor, { category: "basic" });
+ElementEditorFactory.register("text", TextEditor, { category: "basic" });
+ElementEditorFactory.register("image", ImageEditor, { category: "media" });
+ElementEditorFactory.register("button", ButtonEditor, { category: "basic" });
+ElementEditorFactory.register("link", LinkEditor, { category: "basic" });
+ElementEditorFactory.register("divider", DividerEditor, { category: "layout" });
+ElementEditorFactory.register("html", HtmlEditor, { category: "advanced" });
+ElementEditorFactory.register("table", TableEditor, { category: "basic" });
+ElementEditorFactory.register("list", ListEditor, { category: "basic" });
+ElementEditorFactory.register("video", VideoEditor, { category: "media" });
+ElementEditorFactory.register("spacer", SpacerEditor, { category: "layout" });
+ElementEditorFactory.register("container", ContainerEditor, { category: "layout" });

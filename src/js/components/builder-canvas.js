@@ -881,6 +881,13 @@ export class BuilderCanvas extends HTMLElement {
     eventBus.on("rowDragStart", (data) => this.handleRowDragStart({ detail: data }));
     eventBus.on("rowEditRequested", (data) => this.selectRow(data.rowId));
 
+    // Keyboard shortcut: delete selected element
+    eventBus.on("shortcut:deleteElement", (data) => {
+      if (data.elementId) {
+        this.deleteElement(data.elementId);
+      }
+    });
+
     // Mantener solo la suscripción al store
     this.unsubscribeStore = store.subscribe((newState, prevState) => {
       // Handled by handleStateChange

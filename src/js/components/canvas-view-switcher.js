@@ -5,6 +5,7 @@ import { History } from "../utils/history.js";
 import { ExportUtils } from "../utils/export-utils.js";
 import { sanitizeHTML } from "../utils/sanitize.js";
 import { I18n } from "../utils/i18n.js";
+import { KeyboardManager } from "../utils/keyboard-manager.js";
 
 class CanvasViewSwitcher extends HTMLElement {
   constructor() {
@@ -23,6 +24,12 @@ class CanvasViewSwitcher extends HTMLElement {
   setupEventSubscriptions() {
     eventBus.on("contentChanged", this.handleContentChanged.bind(this));
     eventBus.on("historyChange", this.handleHistoryChange.bind(this));
+    eventBus.on("shortcut:undo", () => this.handleUndo());
+    eventBus.on("shortcut:redo", () => this.handleRedo());
+
+    // Initialize keyboard shortcuts
+    const km = KeyboardManager.getInstance();
+    km.attach();
   }
 
   handleContentChanged(data) {
